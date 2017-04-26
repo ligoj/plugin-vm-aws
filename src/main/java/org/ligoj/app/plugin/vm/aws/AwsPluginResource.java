@@ -42,15 +42,12 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import lombok.extern.slf4j.Slf4j;
-
 /**
  * AWS VM resource.
  */
 @Path(AwsPluginResource.URL)
 @Service
 @Produces(MediaType.APPLICATION_JSON)
-@Slf4j
 public class AwsPluginResource extends AbstractXmlApiToolPluginResource implements VmServicePlugin {
 
 	/**

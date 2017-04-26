@@ -148,9 +148,8 @@ public abstract class AWS4SignerBase {
         String encodedPath = HttpUtils.urlEncode(path, true);
         if (encodedPath.startsWith("/")) {
             return encodedPath;
-        } else {
-            return "/".concat(encodedPath);
         }
+           return "/".concat(encodedPath);
     }
     
     /**
