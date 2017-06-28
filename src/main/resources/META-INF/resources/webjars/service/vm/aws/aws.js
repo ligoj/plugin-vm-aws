@@ -5,26 +5,26 @@ define(function () {
 		 * Render vCloud identifier.
 		 */
 		renderKey: function (subscription) {
-			return current.$super('renderKey')(subscription, 'service:vm:vcloud:id');
+			return current.$super('renderKey')(subscription, 'service:vm:aws:id');
 		},
 
 		/**
-		 * Render VM vCloud.
+		 * Render VM AWS.
 		 */
 		renderFeatures: function (subscription) {
 			var result = '';
 			if (subscription.parameters && subscription.parameters.console) {
 				// Add Console
 				result += '<button class="btn-link" data-toggle="popover" data-html="true" data-content="<img src=';
-				result += '\'rest/service/vm/vcloud/' + subscription.id + '/console.png\'';
-				result += '></img>"><span data-toggle="tooltip" title="' + current.$messages['service:vm:vcloud:console'];
+				result += '\'rest/service/vm/aws/' + subscription.id + '/console.png\'';
+				result += '></img>"><span data-toggle="tooltip" title="' + current.$messages['service:vm:aws:console'];
 				result += '" class="fa-stack"><i class="fa fa-square fa-stack-1x"></i><i class="fa fa-terminal fa-stack-1x fa-inverse"></i></span></button>';
 			}
 			return result;
 		},
 
 		configureSubscriptionParameters: function (configuration) {
-			current.$super('registerXServiceSelect2')(configuration, 'service:vm:vcloud:id', 'service/vm/vcloud/');
+			current.$super('registerXServiceSelect2')(configuration, 'service:vm:aws:id', 'service/vm/aws/');
 		},
 
 		/**
@@ -34,7 +34,7 @@ define(function () {
 			var vm = subscription.data.vm;
 			return current.$super('generateCarousel')(subscription, [
 				[
-					'service:vm:vcloud:id', current.renderKey(subscription)
+					'service:vm:aws:id', current.renderKey(subscription)
 				],
 				[
 					'name', vm.name
@@ -46,7 +46,7 @@ define(function () {
 					'service:vm:vcloud:resources', current.$super('icon')('sliders') + vm.memoryMB + ' Mo, ' + vm.numberOfCpus + ' CPU'
 				],
 				[
-					'service:vm:vcloud:vapp', current.$super('icon')('server', 'service:vm:vcloud:vapp') + vm.containerName
+					'service:vm:vcloud:vapp', current.$super('icon')('server', 'service:vm:aws:vapp') + vm.containerName
 				]
 			], 1);
 		}

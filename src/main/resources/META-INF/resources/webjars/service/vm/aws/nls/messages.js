@@ -1,17 +1,20 @@
 define({
-	"root" : {
-		"service:vm:vcloud:console" : "Console",
-		"service:vm:vcloud:user" : "User",
-		"service:vm:vcloud:password" : "Password",
-		"service:vm:vcloud:organization" : "Organization",
-		"service:vm:vcloud:id" : "VM Identifier",
-		"service:vm:vcloud:url" : "API URL",
-		"service:vm:vcloud:vapp" : "vAPP",
-		"service:vm:vcloud:resources" : "Resources",
+	"root" : 
+		'service:vm:aws:access-key-id': 'AWS Access Key Id',
+		'service:vm:aws:secret-access-key': 'AWS Secret Access Key',
+		'service:vm:aws:id': 'AWS Instance Id',
+		"service:vm:aws:console" : "Console",
+		"service:vm:aws:user" : "User",
+		"service:vm:aws:password" : "Password",
+		"service:vm:aws:organization" : "Organization",
+		"service:vm:aws:id" : "VM Identifier",
+		"service:vm:aws:url" : "API URL",
+		"service:vm:aws:vapp" : "vAPP",
+		"service:vm:aws:resources" : "Resources",
 		"error" : {
-			"vcloud-vm" : "Invalid VM",
-			"vcloud-login" : "Authentication failed",
-			"vcloud-admin" : "Administrator access failed"
+			"aws-vm" : "Invalid VM",
+			"aws-login" : "Authentication failed",
+			"aws-admin" : "Administrator access failed"
 		}
 	},
 	"fr" : true

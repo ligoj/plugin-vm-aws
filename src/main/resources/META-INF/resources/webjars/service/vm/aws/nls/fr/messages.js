@@ -1,13 +1,13 @@
 define({
-	"service:vm:vcloud:user" : "Utilisateur",
-	"service:vm:vcloud:password" : "Mot de passe",
-	"service:vm:vcloud:organization" : "Organisation",
-	"service:vm:vcloud:id" : "Identifiant VM",
-	"service:vm:vcloud:resources" : "Ressources",
+	"service:vm:aws:user" : "Utilisateur",
+	"service:vm:aws:password" : "Mot de passe",
+	"service:vm:aws:organization" : "Organisation",
+	"service:vm:aws:id" : "Identifiant VM",
+	"service:vm:aws:resources" : "Ressources",
 	"error" : {
-		"vcloud-vm" : "Invalid VM",
-		"vcloud-login" : "Authentication failed",
-		"vcloud-admin" : "Administrator access failed"
+		"aws-vm" : "Invalid VM",
+		"aws-login" : "Authentication failed",
+		"aws-admin" : "Administrator access failed"
 	}
 
 });
