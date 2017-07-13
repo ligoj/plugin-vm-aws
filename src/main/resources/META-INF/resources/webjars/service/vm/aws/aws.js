@@ -98,7 +98,7 @@ define(function () {
 			var vm = subscription.data.vm;
 			return current.$super('generateCarousel')(subscription, [
 				[
-					'service:vm:aws:id', current.renderKey(subscription)
+					'id', vm.id
 				],
 				[
 					'name', vm.name
@@ -106,12 +106,6 @@ define(function () {
 				[
 					'description', vm.description
 				],
-				[
-					'service:vm:aws:resources', current.$super('icon')('sliders') + vm.memoryMB + ' Mo, ' + vm.numberOfCpus + ' CPU'
-				],
-				[
-					'service:vm:aws:vapp', current.$super('icon')('server', 'service:vm:aws:vapp') + vm.containerName
-				]
 			], 1);
 		}
 	};

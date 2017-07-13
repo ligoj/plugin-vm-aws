@@ -1,9 +1,9 @@
 package org.ligoj.app.plugin.vm.aws;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -19,8 +19,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.StreamingOutput;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
@@ -29,11 +27,8 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.logging.log4j.util.Strings;
 import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.plugin.vm.VmResource;
 import org.ligoj.app.plugin.vm.VmServicePlugin;
@@ -51,7 +46,6 @@ import org.ligoj.bootstrap.core.validation.ValidationJsonException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
@@ -97,7 +91,17 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	/**
 	 * The EC2 identifier.
 	 */
-	public static final String PARAMETER_VM = KEY + ":id";
+	public static final String PARAMETER_VM = KEY + ":vm-id";
+
+	/**
+	 * The EC2 Access key.
+	 */
+	public static final String PARAMETER_ACCESS_KEY = KEY + ":access-key-id";
+
+	/**
+	 * The EC2 Secret key.
+	 */
+	public static final String PARAMETER_SECRET_KEY = KEY + ":secret-access-key";
 
 	@Autowired
 	private CurlCacheToken curlCacheToken;
@@ -151,23 +155,25 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	protected Vm validateVm(final Map<String, String> parameters)
 			throws SAXException, IOException, ParserConfigurationException {
 
-		final String id = parameters.get(PARAMETER_VM);
+		final String vmId = parameters.get(PARAMETER_VM);
+		final String awsAccessKey = parameters.get(PARAMETER_ACCESS_KEY);
+		final String awsSecretKey = parameters.get(PARAMETER_SECRET_KEY);
+
 		// Get the VM if exists
-		final List<Vm> vms = toVms(getVCloudResource(parameters,
-				"/query?type=vm&format=idrecords&filter=id==urn:vcloud:vm:" + id + "&pageSize=1"));
+		final List<Vm> vms = this.getDescribeInstances(awsAccessKey, awsSecretKey, "eu-west-1", vmId);
 
 		// Check the VM has been found
 		if (vms.isEmpty()) {
 			// Invalid id
-			throw new ValidationJsonException(PARAMETER_VM, "vcloud-vm", id);
+			throw new ValidationJsonException(PARAMETER_VM, "aws-vm", vmId);
 		}
 		return vms.get(0);
 	}
 
 	@Override
 	public void link(final int subscription) throws Exception {
-		// Validate the virtual machine name
-		validateVm(subscriptionResource.getParameters(subscription));
+		// TODO Validate the virtual machine name
+		// validateVm(subscriptionResource.getParameters(subscription));
 	}
 
 	/**
@@ -186,9 +192,7 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	public List<Vm> findAllByName(@PathParam("node") final String node, @PathParam("criteria") final String criteria)
 			throws IOException, SAXException, ParserConfigurationException {
 		// Get the VMs and parse them
-		return toVms(getVCloudResource(nodeResource.getParametersAsMap(node),
-				"/query?type=vm&format=idrecords&filter=name==*" + criteria
-						+ "*&sortAsc=name&fields=name,guestOs&pageSize=10"));
+		return null;
 	}
 
 	/**
@@ -234,29 +238,13 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	@Consumes(MediaType.APPLICATION_JSON)
 	public List<INamableBean<String>> findGroupsByName(@QueryParam("accessKey") final String accessKey,
 			@QueryParam("secretKey") String secretKey, @QueryParam("search[value]") String criteria) {
-		String data = getDescribeInstances(accessKey, secretKey, "eu-west-1");
-		final List<INamableBean<String>> list = new ArrayList<>();
-		if (!Strings.isEmpty(data)) {
-			try {
-				DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
-				DocumentBuilder builder = builderFactory.newDocumentBuilder();
-				Document xmlDocument = builder.parse(new ByteArrayInputStream(data.getBytes()));
-				XPath xPath = XPathFactory.newInstance().newXPath();
-				NodeList nodeList = (NodeList) xPath
-						.compile("/DescribeInstancesResponse/reservationSet/item/instancesSet/item")
-						.evaluate(xmlDocument, XPathConstants.NODESET);
-				IntStream.range(0, nodeList.getLength()).mapToObj(nodeList::item).forEach((node) -> {
-					Element element = (Element) node;
-					INamableBean item = new NamedBean();
-					item.setId(element.getElementsByTagName("instanceId").item(0).getTextContent());
-					item.setName(element.getElementsByTagName("keyName").item(0).getTextContent());
-					list.add(item);
-				});
-
-			} catch (IOException | ParserConfigurationException | SAXException | XPathExpressionException e) {
-			}
-		}
-		return list;
+		List<Vm> data = getDescribeInstances(accessKey, secretKey, "eu-west-1");
+		return data.stream().map(vm -> {
+			final INamableBean item = new NamedBean();
+			item.setId(vm.getId());
+			item.setName(vm.getName());
+			return item;
+		}).collect(Collectors.toList());
 	}
 
 	/**
@@ -268,11 +256,28 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	 * @param region
 	 * @return
 	 */
-	public String getDescribeInstances(String awsAccessKey, String awsSecretKey, String region) {
+	public List<Vm> getDescribeInstances(String awsAccessKey, String awsSecretKey, String region) {
+		return getDescribeInstances(awsAccessKey, awsSecretKey, region, null);
+	}
+
+	/**
+	 * call aws to obtain the list of available instances for a region.
+	 *
+	 *
+	 * @param awsAccessKey
+	 * @param awsSecretKey
+	 * @param region
+	 * @param vmId
+	 * @return
+	 */
+	private List<Vm> getDescribeInstances(String awsAccessKey, String awsSecretKey, String region, String vmId) {
+		String query = "Action=DescribeInstances&Version=2016-11-15";
+		if (!StringUtils.isEmpty(vmId)) {
+			query += "&Filter.1.Name=instance-id&Filter.1.Value.1=" + vmId;
+		}
 		AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().awsAccessKey(awsAccessKey)
 				.awsSecretKey(awsSecretKey).httpMethod("POST").path("/").serviceName("ec2")
-				.host("ec2." + region + ".amazonaws.com").regionName(region)
-				.body("Action=DescribeInstances&Version=2016-11-15").build();
+				.host("ec2." + region + ".amazonaws.com").regionName(region).body(query).build();
 
 		final String authorization = signer.computeSignature(signatureQuery);
 		final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
@@ -284,9 +289,13 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 		final boolean httpResult = new CurlProcessor().process(request);
 
 		if (httpResult) {
-			return request.getResponse();
+			try {
+				return toVms(request.getResponse());
+			} catch (SAXException | ParserConfigurationException | IOException | XPathExpressionException e) {
+
+			}
 		}
-		return null;
+		return Collections.EMPTY_LIST;
 	}
 
 	/**
@@ -294,30 +303,33 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	 */
 	private Vm toVm(final Element record) {
 		final Vm result = new Vm();
-		result.setId(StringUtils.removeStart(record.getAttribute("id"), "urn:vcloud:vm:"));
-		result.setName(record.getAttribute("name"));
-		result.setDescription(record.getAttribute("guestOs"));
+		result.setId(record.getElementsByTagName("instanceId").item(0).getTextContent());
+		result.setName(record.getElementsByTagName("keyName").item(0).getTextContent());
+		result.setDescription(record.getElementsByTagName("instanceType").item(0).getTextContent());
+		Element stateElement = (Element) record.getElementsByTagName("instanceState").item(0);
+		result.setStatus(stateElement.getElementsByTagName("code").item(0).getTextContent().equals("16")
+				? VmStatus.POWERED_ON : VmStatus.POWERED_OFF);
 
-		// Optional attributes
-		result.setStorageProfileName(record.getAttribute("storageProfileName"));
-		result.setStatus(EnumUtils.getEnum(VmStatus.class, record.getAttribute("status")));
-		result.setNumberOfCpus(NumberUtils.toInt(StringUtils.trimToNull(record.getAttribute("numberOfCpus"))));
-		result.setBusy(Boolean.parseBoolean(
-				ObjectUtils.defaultIfNull(StringUtils.trimToNull(record.getAttribute("isBusy")), "false")));
-		result.setContainerName(StringUtils.trimToNull(record.getAttribute("containerName")));
-		result.setMemoryMB(NumberUtils.toInt(StringUtils.trimToNull(record.getAttribute("memoryMB"))));
-		result.setDeployed(Boolean.parseBoolean(
-				ObjectUtils.defaultIfNull(StringUtils.trimToNull(record.getAttribute("isDeployed")), "false")));
 		return result;
 	}
 
 	/**
 	 * Build described beans from a XML result.
 	 */
-	private List<Vm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException {
-		final NodeList tags = getTags(vmAsXml, "VMRecord");
+	private List<Vm> toVms(final String vmAsXml)
+			throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
+		final NodeList tags = getNodeInstances(vmAsXml,
+				"/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
 		return IntStream.range(0, tags.getLength()).mapToObj(tags::item).map(n -> (Element) n).map(this::toVm)
 				.collect(Collectors.toList());
+	}
+
+	protected NodeList getNodeInstances(final String input, final String tag)
+			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+		XPath xPath = XPathFactory.newInstance().newXPath();
+		return (NodeList) xPath.compile(tag).evaluate(
+				parse(IOUtils.toInputStream(ObjectUtils.defaultIfNull(input, ""), StandardCharsets.UTF_8)),
+				XPathConstants.NODESET);
 	}
 
 	/**
