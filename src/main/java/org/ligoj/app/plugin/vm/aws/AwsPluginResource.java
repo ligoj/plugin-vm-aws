@@ -1,5 +1,6 @@
 package org.ligoj.app.plugin.vm.aws;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -15,9 +16,16 @@ import javax.ws.rs.HttpMethod;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.StreamingOutput;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
@@ -25,19 +33,25 @@ import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.logging.log4j.util.Strings;
 import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.plugin.vm.VmResource;
 import org.ligoj.app.plugin.vm.VmServicePlugin;
+import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
+import org.ligoj.app.plugin.vm.aws.auth.AWS4SignerForAuthorizationHeader;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmStatus;
 import org.ligoj.app.resource.plugin.AbstractXmlApiToolPluginResource;
 import org.ligoj.app.resource.plugin.CurlCacheToken;
 import org.ligoj.app.resource.plugin.CurlProcessor;
 import org.ligoj.app.resource.plugin.CurlRequest;
+import org.ligoj.bootstrap.core.INamableBean;
+import org.ligoj.bootstrap.core.NamedBean;
 import org.ligoj.bootstrap.core.validation.ValidationJsonException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
@@ -91,6 +105,8 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	@Value("${saas.service-vm-vcloud-auth-retries:2}")
 	private int retries;
 
+	private AWS4SignerForAuthorizationHeader signer = new AWS4SignerForAuthorizationHeader();
+
 	/**
 	 * Cache the API token.
 	 */
@@ -127,7 +143,7 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 
 	/**
 	 * Validate the VM configuration.
-	 * 
+	 *
 	 * @param parameters
 	 *            the space parameters.
 	 * @return Virtual Machine description.
@@ -157,7 +173,7 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	/**
 	 * Find the virtual machines matching to the given criteria. Look into
 	 * virtual machine name only.
-	 * 
+	 *
 	 * @param node
 	 *            the node to be tested with given parameters.
 	 * @param criteria
@@ -177,7 +193,7 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 
 	/**
 	 * Return a snapshot of the console.
-	 * 
+	 *
 	 * @param subscription
 	 *            the valid screenshot of the console.
 	 * @return the valid screenshot of the console.
@@ -204,6 +220,73 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 			});
 			processor.process(curlRequest);
 		};
+	}
+
+	/**
+	 * Return the list of available vm
+	 *
+	 * @param subscription
+	 *            the valid screenshot of the console.
+	 * @return the valid screenshot of the console.
+	 */
+	@GET
+	@Path("instance")
+	@Consumes(MediaType.APPLICATION_JSON)
+	public List<INamableBean<String>> findGroupsByName(@QueryParam("accessKey") final String accessKey,
+			@QueryParam("secretKey") String secretKey, @QueryParam("search[value]") String criteria) {
+		String data = getDescribeInstances(accessKey, secretKey, "eu-west-1");
+		final List<INamableBean<String>> list = new ArrayList<>();
+		if (!Strings.isEmpty(data)) {
+			try {
+				DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+				DocumentBuilder builder = builderFactory.newDocumentBuilder();
+				Document xmlDocument = builder.parse(new ByteArrayInputStream(data.getBytes()));
+				XPath xPath = XPathFactory.newInstance().newXPath();
+				NodeList nodeList = (NodeList) xPath
+						.compile("/DescribeInstancesResponse/reservationSet/item/instancesSet/item")
+						.evaluate(xmlDocument, XPathConstants.NODESET);
+				IntStream.range(0, nodeList.getLength()).mapToObj(nodeList::item).forEach((node) -> {
+					Element element = (Element) node;
+					INamableBean item = new NamedBean();
+					item.setId(element.getElementsByTagName("instanceId").item(0).getTextContent());
+					item.setName(element.getElementsByTagName("keyName").item(0).getTextContent());
+					list.add(item);
+				});
+
+			} catch (IOException | ParserConfigurationException | SAXException | XPathExpressionException e) {
+			}
+		}
+		return list;
+	}
+
+	/**
+	 * call aws to obtain the list of available instances for a region.
+	 *
+	 *
+	 * @param awsAccessKey
+	 * @param awsSecretKey
+	 * @param region
+	 * @return
+	 */
+	public String getDescribeInstances(String awsAccessKey, String awsSecretKey, String region) {
+		AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().awsAccessKey(awsAccessKey)
+				.awsSecretKey(awsSecretKey).httpMethod("POST").path("/").serviceName("ec2")
+				.host("ec2." + region + ".amazonaws.com").regionName(region)
+				.body("Action=DescribeInstances&Version=2016-11-15").build();
+
+		final String authorization = signer.computeSignature(signatureQuery);
+		final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
+				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
+		request.getHeaders().putAll(signatureQuery.getHeaders());
+		request.getHeaders().put("Authorization", authorization);
+		request.setSaveResponse(true);
+
+		final boolean httpResult = new CurlProcessor().process(request);
+
+		if (httpResult) {
+			return request.getResponse();
+		}
+		return null;
 	}
 
 	/**
@@ -344,14 +427,17 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 		// https://github.com/aws/aws-sdk-java
 		// http://docs.aws.amazon.com/AWSEC2/latest/APIReference/CommonParameters.html
 		// http://docs.aws.amazon.com/general/latest/gr/signature-version-4.html
-		
+
 		// http://docs.aws.amazon.com/general/latest/gr/sigv4-signed-request-examples.html
-		
+
 		//
 		// You create a canonical request.
-		// You use the canonical request and some other information to create a string to sign.
-		// You use your AWS secret access key to derive a signing key, and then use that signing key and the string to sign to create a signature.
-		// You add the resulting signature to the HTTP request in a header or as a query string parameter.
+		// You use the canonical request and some other information to create a
+		// string to sign.
+		// You use your AWS secret access key to derive a signing key, and then
+		// use that signing key and the string to sign to create a signature.
+		// You add the resulting signature to the HTTP request in a header or as
+		// a query string parameter.
 	}
 
 }

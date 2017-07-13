@@ -1,4 +1,4 @@
 id;owner.id;data;mandatory;type;mode;secured
 service:vm:aws:access-key-id;service:vm:aws;;true;TEXT;;true
 service:vm:aws:secret-access-key;service:vm:aws;;true;TEXT;;true
-service:vm:aws:instance-id;service:vm:aws;;true;TEXT;;true
+service:vm:aws:vm-id;service:vm:aws;;true;TEXT;;true
