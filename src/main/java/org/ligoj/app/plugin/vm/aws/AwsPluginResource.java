@@ -152,8 +152,7 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	 *            the space parameters.
 	 * @return Virtual Machine description.
 	 */
-	protected Vm validateVm(final Map<String, String> parameters)
-			throws SAXException, IOException, ParserConfigurationException {
+	protected Vm validateVm(final Map<String, String> parameters) {
 
 		final String vmId = parameters.get(PARAMETER_VM);
 		final String awsAccessKey = parameters.get(PARAMETER_ACCESS_KEY);
@@ -189,8 +188,7 @@ public class AwsPluginResource extends AbstractXmlApiToolPluginResource implemen
 	@GET
 	@Path("{node:[a-z].*}/{criteria}")
 	@Consumes(MediaType.APPLICATION_JSON)
-	public List<Vm> findAllByName(@PathParam("node") final String node, @PathParam("criteria") final String criteria)
-			throws IOException, SAXException, ParserConfigurationException {
+	public List<Vm> findAllByName(@PathParam("node") final String node, @PathParam("criteria") final String criteria) {
 		// Get the VMs and parse them
 		return null;
 	}

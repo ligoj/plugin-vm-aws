@@ -74,9 +74,8 @@ public abstract class AWS4SignerBase {
 			final String encodedPath = urlCodec.encode(path).replace("%2F", "/");
 			if (encodedPath.startsWith("/")) {
 				return encodedPath;
-			} else {
-				return "/".concat(encodedPath);
 			}
+			return "/".concat(encodedPath);
 		} catch (final EncoderException e) {
 			throw new TechnicalException("Error during resource path encoding", e);
 		}
