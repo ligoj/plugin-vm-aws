@@ -7,6 +7,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -94,7 +95,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * The default region, fixed for now.
 	 */
 	private static final String DEFAULT_REGION = "eu-west-1";
-	
+
 	/**
 	 * VM operation mapping.
 	 * 
@@ -178,8 +179,8 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
-		return this.getDescribeInstances(parameters, "eu-west-1", "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId).stream()
-				.findFirst().orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-vm", instanceId));
+		return this.getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId).stream().findFirst()
+				.orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-vm", instanceId));
 	}
 
 	@Override
@@ -208,8 +209,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		}
 
 		// Get the VMs and parse them
-		return this.getDescribeInstances(pvResource.getNodeParameters(node), "eu-west-1",
-				"&Filter.1.Name=tag:Name&Filter.1.Value.1=" + criteria);
+		return this.getDescribeInstances(pvResource.getNodeParameters(node), "&Filter.1.Name=tag:Name&Filter.1.Value.1=" + criteria);
 	}
 
 	/**
@@ -221,9 +221,9 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * @param region
 	 * @return
 	 */
-	public List<Vm> getDescribeInstances(final Map<String, String> parameters, String region)
+	public List<Vm> getDescribeInstances(final Map<String, String> parameters)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		return getDescribeInstances(parameters, region, null);
+		return getDescribeInstances(parameters, null);
 	}
 
 	/**
@@ -232,34 +232,20 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 *
 	 * @param parameters
 	 *            Subscription parameters.
-	 * @param region
-	 *            Filtered region.
 	 * @param filter
 	 *            Optional instance identifier to find. For sample :
 	 *            "&Filter.1.Name=instance-id&Filter.1.Value.1=my_insance_id"
 	 * @return The matching instances.
 	 */
-	private List<Vm> getDescribeInstances(final Map<String, String> parameters, final String region, final String filter)
+	private List<Vm> getDescribeInstances(final Map<String, String> parameters, final String filter)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		String query = "Action=DescribeInstances&Version=2016-11-15";
 		if (StringUtils.isNotEmpty(filter)) {
 			query += filter;
 		}
-		AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().awsAccessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
-				.awsSecretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).httpMethod("POST").path("/").serviceName("ec2")
-				.host("ec2." + region + ".amazonaws.com").regionName(region).body(query).build();
-
-		final String authorization = signer.computeSignature(signatureQuery);
-		final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
-				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
-		request.getHeaders().putAll(signatureQuery.getHeaders());
-		request.getHeaders().put("Authorization", authorization);
-		request.setSaveResponse(true);
-
-		if (new CurlProcessor().process(request)) {
-			return toVms(request.getResponse());
-		}
-		return Collections.EMPTY_LIST;
+		final String response = StringUtils.defaultIfEmpty(processEC2(parameters, query),
+				"<DescribeInstancesResponse><reservationSet><item><instancesSet></instancesSet></item></reservationSet></DescribeInstancesResponse>");
+		return toVms(response);
 	}
 
 	/**
@@ -330,40 +316,45 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	@Override
+	public void delete(int subscription, boolean remoteData) throws Exception {
+		// No custom data by default
+	}
+
+	@Override
 	public SubscriptionStatusWithData checkSubscriptionStatus(final String node, final Map<String, String> parameters) throws Exception {
 		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
 		status.put("vm", validateVm(parameters));
 		return status;
 	}
 
-	/**
-	 * Check the response is valid. For now, the response must not be
-	 * <code>null</code>.
-	 */
-	private void checkSchedulerResponse(final boolean response) {
-		if (!response) {
+	@Override
+	public void execute(final int subscription, final VmOperation operation) {
+		if (Optional.ofNullable(OPERATION_TO_ACTION.get(operation))
+				.map(a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
+				.orElse(null) == null) {
 			// The result is not correct
 			throw new BusinessException("vm-operation-execute");
 		}
 	}
 
-	@Override
-	public void execute(final int subscription, final VmOperation operation) {
-		Optional.ofNullable(OPERATION_TO_ACTION.get(operation)).ifPresent(a -> {
-			final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
-			final String query = "Version=2016-11-15&Action=" + a + "&InstanceId.1=" + parameters.get(PARAMETER_INSTANCE_ID);
-			final AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().awsAccessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
-					.awsSecretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).httpMethod("POST").path("/").serviceName("ec2")
-					.host("ec2." + getRegion() + ".amazonaws.com").regionName(getRegion()).body(query).build();
+	private String processEC2(final Map<String, String> parameters, final String query) {
+		final AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().awsAccessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
+				.awsSecretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).httpMethod("POST").path("/").serviceName("ec2")
+				.host("ec2." + getRegion() + ".amazonaws.com").regionName(getRegion()).body(query).build();
 
-			final String authorization = signer.computeSignature(signatureQuery);
-			final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
-					"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
-			request.getHeaders().putAll(signatureQuery.getHeaders());
-			request.getHeaders().put("Authorization", authorization);
-			request.setSaveResponse(true);
-			checkSchedulerResponse(new CurlProcessor().process(request));
-		});
+		final String authorization = signer.computeSignature(signatureQuery);
+		final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
+				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
+		request.getHeaders().putAll(signatureQuery.getHeaders());
+		request.getHeaders().put("Authorization", authorization);
+		request.setSaveResponse(true);
+		new CurlProcessor().process(request);
+		return request.getResponse();
+	}
+
+	private String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
+		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
+		return processEC2(parameters, queryProvider.apply(parameters));
 	}
 
 	protected String getRegion() {
