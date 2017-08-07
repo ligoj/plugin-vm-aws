@@ -1,2 +1,2 @@
-id;name;refined.id;mode;uiClasses;tag;tagUiClasses
-service:vm:aws;ec2;service:vm;LINK;;;
+id;name;refined.id;mode
+service:vm:aws;EC2;service:vm;LINK

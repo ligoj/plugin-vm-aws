@@ -1,4 +1,4 @@
-id;name;refined.id;mode;uiClasses;tag;tagUiClasses
-service:vm;Virtualization;;LINK;fa fa-cloud;technical;fa fa-industry
-service:vm:vcloud;vCloud;service:vm;LINK;;;
-service:vm:vcloud:obs-fca-info;FCA - Info;service:vm:vcloud;LINK;;;
+id;name;refined.id
+service:vm;Virtualization
+service:vm:aws;EC2;service:vm
+service:vm:aws:test;EC2 DIG;service:vm:aws
