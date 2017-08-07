@@ -11,10 +11,8 @@ import java.util.List;
 import java.util.Map;
 
 import javax.transaction.Transactional;
-import javax.ws.rs.core.StreamingOutput;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.http.HttpStatus;
 import org.junit.Assert;
 import org.junit.Before;
@@ -46,15 +44,15 @@ import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import net.sf.ehcache.CacheManager;
 
 /**
- * Test class of {@link AwsPluginResource}
+ * Test class of {@link VmAwsPluginResource}
  */
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = "classpath:/META-INF/spring/application-context-test.xml")
 @Rollback
 @Transactional
-public class AwsPluginResourceTest extends AbstractServerTest {
+public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Autowired
-	private AwsPluginResource resource;
+	private VmAwsPluginResource resource;
 
 	@Autowired
 	private ParameterValueResource pvResource;
@@ -82,7 +80,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 	 * Return the subscription identifier of the given project. Assumes there is only one subscription for a service.
 	 */
 	protected int getSubscription(final String project) {
-		return getSubscription(project, AwsPluginResource.KEY);
+		return getSubscription(project, VmAwsPluginResource.KEY);
 	}
 
 	@Test
@@ -119,7 +117,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void validateVmNotFound() throws Exception {
 		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(AwsPluginResource.PARAMETER_VM, "vcloud-vm"));
+		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "vcloud-vm"));
 		prepareMockHome();
 
 		// Not find VM
@@ -127,7 +125,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 		httpServer.start();
 
 		final Map<String, String> parameters = pvResource.getNodeParameters("service:vm:vcloud:obs-fca-info");
-		parameters.put(AwsPluginResource.PARAMETER_VM, "0");
+		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
 		resource.validateVm(parameters);
 	}
 
@@ -136,7 +134,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 		prepareMockItem();
 
 		final Map<String, String> parameters = pvResource.getNodeParameters("service:vm:vcloud:obs-fca-info");
-		parameters.put(AwsPluginResource.PARAMETER_VM, "75aa69b4-8cff-40cd-9338-9abafc7d5935");
+		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "75aa69b4-8cff-40cd-9338-9abafc7d5935");
 		final Vm vm = resource.validateVm(parameters);
 		checkVm(vm);
 		Assert.assertTrue(vm.isDeployed());
@@ -188,7 +186,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void checkStatusAuthenticationFailed() throws Exception {
 		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(AwsPluginResource.PARAMETER_URL, "vcloud-login"));
+		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_ACCOUNT, "vcloud-login"));
 		httpServer.stubFor(post(urlPathEqualTo("/sessions")).willReturn(aResponse().withStatus(HttpStatus.SC_FORBIDDEN)));
 		httpServer.start();
 		resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription));
@@ -211,7 +209,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void checkStatusNotAdmin() throws Exception {
 		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(AwsPluginResource.PARAMETER_URL, "vcloud-admin"));
+		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_ACCOUNT, "vcloud-admin"));
 		prepareMockHome();
 		httpServer.start();
 		resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription));
@@ -220,7 +218,7 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void checkStatusNotAccess() throws Exception {
 		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(AwsPluginResource.PARAMETER_URL, "vcloud-admin"));
+		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_ACCOUNT, "vcloud-admin"));
 		httpServer.stubFor(
 				post(urlPathEqualTo("/sessions")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withHeader("x-vcloud-authorization", "token")));
 		httpServer.start();
@@ -249,46 +247,6 @@ public class AwsPluginResourceTest extends AbstractServerTest {
 		final List<Vm> projects = resource.findAllByName("service:vm:vcloud:obs-fca-info", "sc");
 		Assert.assertEquals(3, projects.size());
 		checkItem(projects.get(0));
-	}
-
-	@Test
-	public void getConsole() throws Exception {
-		prepareMockHome();
-		httpServer.stubFor(get(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/screen"))
-				.willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(
-						IOUtils.toString(new ClassPathResource("mock-server/vcloud/vcloud-console.png").getInputStream(), StandardCharsets.UTF_8))));
-		httpServer.start();
-
-		final StreamingOutput imageStream = resource.getConsole(subscription);
-		final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-		imageStream.write(outputStream);
-		Assert.assertTrue(outputStream.toByteArray().length > 1024);
-	}
-
-	@Test
-	public void getConsoleNotAvailable() throws Exception {
-		prepareMockHome();
-		httpServer.stubFor(
-				get(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/screen")).willReturn(aResponse().withStatus(HttpStatus.SC_OK)));
-		httpServer.start();
-
-		final StreamingOutput imageStream = resource.getConsole(subscription);
-		final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-		imageStream.write(outputStream);
-		Assert.assertEquals(0, outputStream.toByteArray().length);
-	}
-
-	@Test
-	public void getConsoleError() throws Exception {
-		prepareMockHome();
-		httpServer.stubFor(get(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/screen"))
-				.willReturn(aResponse().withStatus(HttpStatus.SC_NO_CONTENT)));
-		httpServer.start();
-
-		final StreamingOutput imageStream = resource.getConsole(subscription);
-		final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-		imageStream.write(outputStream);
-		Assert.assertEquals(0, outputStream.toByteArray().length);
 	}
 
 	@Test

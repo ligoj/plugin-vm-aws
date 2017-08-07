@@ -7,10 +7,10 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.codec.net.URLCodec;
+import org.apache.commons.lang3.StringUtils;
 import org.ligoj.bootstrap.core.resource.TechnicalException;
 
 /**
@@ -67,15 +67,8 @@ public abstract class AWS4SignerBase {
 	 * Returns the canonicalized resource path for the service endpoint.
 	 */
 	protected String getCanonicalizedResourcePath(final String path) {
-		if (path == null || path.isEmpty()) {
-			return "/";
-		}
 		try {
-			final String encodedPath = urlCodec.encode(path).replace("%2F", "/");
-			if (encodedPath.startsWith("/")) {
-				return encodedPath;
-			}
-			return "/".concat(encodedPath);
+			return StringUtils.prependIfMissing(urlCodec.encode(StringUtils.trimToEmpty(path)).replace("%2F", "/"), "/");
 		} catch (final EncoderException e) {
 			throw new TechnicalException("Error during resource path encoding", e);
 		}
@@ -95,9 +88,6 @@ public abstract class AWS4SignerBase {
 	 * @return A canonicalized form for the specified query string parameters.
 	 */
 	public String getCanonicalizedQueryString(final Map<String, String> parameters) {
-		if (parameters.isEmpty()) {
-			return "";
-		}
 		return parameters.keySet().stream().sorted().map(key -> {
 			try {
 				return urlCodec.encode(key) + "=" + urlCodec.encode(parameters.get(key));
@@ -127,7 +117,7 @@ public abstract class AWS4SignerBase {
 	 * algorithm.
 	 */
 	public String hash(final String text) {
-		return Hex.encodeHexString(DigestUtils.getSha256Digest().digest(StringUtils.getBytesUtf8(text)));
+		return Hex.encodeHexString(DigestUtils.getSha256Digest().digest(org.apache.commons.codec.binary.StringUtils.getBytesUtf8(text)));
 	}
 
 	/**
@@ -140,6 +130,6 @@ public abstract class AWS4SignerBase {
 	 * @return signature
 	 */
 	protected byte[] sign(final String stringData, final byte[] key) {
-		return HmacUtils.hmacSha256(key, StringUtils.getBytesUtf8(stringData));
+		return HmacUtils.hmacSha256(key, org.apache.commons.codec.binary.StringUtils.getBytesUtf8(stringData));
 	}
 }

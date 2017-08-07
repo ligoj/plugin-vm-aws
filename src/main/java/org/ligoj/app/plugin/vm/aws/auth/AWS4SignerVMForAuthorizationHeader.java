@@ -5,11 +5,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.apache.commons.codec.binary.Hex;
+import org.springframework.stereotype.Service;
 
 /**
  * AWS4 signer used to sign requests with an 'Authorization' header.
  */
-public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
+@Service
+public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 
 	/** SHA256 hash of an empty request body **/
 	public static final String EMPTY_BODY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -19,7 +21,7 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 	 **/
 	public static final String ISO8601BasicFormat = "yyyyMMdd'T'HHmmss'Z'";
 	public static final String DateStringFormat = "yyyyMMdd";
-
+	
 	/**
 	 * clock used to date query
 	 */
@@ -28,7 +30,7 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 	/**
 	 * Computes an AWS4 signature for a request, ready for inclusion as an
 	 * 'Authorization' header.
-	 *
+	 * 
 	 * @param query
 	 *            the query
 	 * @return The computed authorization string for the request. This value
@@ -39,10 +41,10 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 		// first get the date and time for the subsequent request, and convert
 		// to ISO 8601 format for use in signature generation
 		final ZonedDateTime now = ZonedDateTime.now(clock);
-
+		
 		final String dateTimeStamp = DateTimeFormatter.ofPattern(ISO8601BasicFormat).format(now);
 		final String bodyHash;
-		if (query.getBody() == null) {
+		if(query.getBody()==null){
 			bodyHash = EMPTY_BODY_SHA256;
 		} else {
 			bodyHash = hash(query.getBody());
@@ -53,8 +55,7 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 		query.getHeaders().put("Host", query.getHost());
 
 		// canonicalize the headers; we need the set of header names as well as
-		// the
-		// names and values to go into the signature process
+		// the names and values to go into the signature process
 		final String canonicalizedHeaderNames = getCanonicalizeHeaderNames(query.getHeaders());
 		final String canonicalizedHeaders = getCanonicalizedHeaderString(query.getHeaders());
 
@@ -62,8 +63,8 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 		final String canonicalizedQueryParameters = getCanonicalizedQueryString(query.getQueryParameters());
 
 		// canonicalize the various components of the request
-		final String canonicalRequest = getCanonicalRequest(query.getPath(), query.getHttpMethod(),
-				canonicalizedQueryParameters, canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
+		final String canonicalRequest = getCanonicalRequest(query.getPath(), query.getHttpMethod(), canonicalizedQueryParameters,
+				canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
 
 		// construct the string to be signed
 		final String dateStamp = DateTimeFormatter.ofPattern(DateStringFormat).format(now);
@@ -82,8 +83,8 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 		final String signedHeadersAuthorizationHeader = "SignedHeaders=" + canonicalizedHeaderNames;
 		final String signatureAuthorizationHeader = "Signature=" + Hex.encodeHexString(signature);
 
-		final String authorizationHeader = SCHEME + "-" + ALGORITHM + " " + credentialsAuthorizationHeader + ", "
-				+ signedHeadersAuthorizationHeader + ", " + signatureAuthorizationHeader;
+		final String authorizationHeader = SCHEME + "-" + ALGORITHM + " " + credentialsAuthorizationHeader + ", " + signedHeadersAuthorizationHeader
+				+ ", " + signatureAuthorizationHeader;
 
 		return authorizationHeader;
 	}
