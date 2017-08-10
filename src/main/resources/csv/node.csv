@@ -1,2 +1,2 @@
 id;name;refined.id;mode
-service:vm:aws;EC2;service:vm;LINK
+service:vm:aws;AWS EC2;service:vm;LINK

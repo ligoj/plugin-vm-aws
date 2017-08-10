@@ -89,7 +89,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	/**
 	 * The EC2 identifier.
 	 */
-	public static final String PARAMETER_INSTANCE_ID = KEY + ":instance-id";
+	public static final String PARAMETER_INSTANCE_ID = KEY + ":id";
 
 	/**
 	 * Configuration key used for {@link #DEFAULT_REGION}
