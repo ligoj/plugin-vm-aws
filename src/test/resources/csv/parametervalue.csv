@@ -1,5 +1,5 @@
 parameter.id;data;node.id;subscription.id!
-service:vm:aws:access-key-id;123465790123465790;service:vm:aws:test;1
+service:vm:aws:access-key-id;12345678901234567890;service:vm:aws:test;1
 service:vm:aws:secret-access-key;abcdefghtiklmnopqrstuvwxyz;service:vm:aws:test;1
-service:vm:aws:account;12346579;service:vm:aws:test;1
-service:vm:aws:instance-id;i-1345678;;1
+service:vm:aws:account;123456789;service:vm:aws:test;1
+service:vm:aws:instance-id;i-12345678;;1

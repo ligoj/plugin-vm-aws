@@ -1,0 +1,8 @@
+<DescribeInstancesResponse>
+	<reservationSet>
+		<item>
+			<instancesSet>
+			</instancesSet>
+		</item>
+	</reservationSet>
+</DescribeInstancesResponse>

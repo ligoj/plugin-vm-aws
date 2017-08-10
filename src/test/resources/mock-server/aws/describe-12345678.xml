@@ -1,0 +1,26 @@
+<DescribeInstancesResponse>
+	<reservationSet>
+		<item>
+			<instancesSet>
+				<item>
+					<instanceId>i-12345678</instanceId>
+					<instanceType>t2.micro</instanceType>
+					<instanceState>
+						<code>16</code>
+					</instanceState>
+					<vpcId>vpc-11112222</vpcId>
+					<tagSet>
+						<item>
+							<key>Name</key>
+							<value>INSTANCE_ON</value>
+						</item>
+						<item>
+							<key>Description</key>
+							<value>Custom description</value>
+						</item>
+					</tagSet>
+				</item>
+			</instancesSet>
+		</item>
+	</reservationSet>
+</DescribeInstancesResponse>

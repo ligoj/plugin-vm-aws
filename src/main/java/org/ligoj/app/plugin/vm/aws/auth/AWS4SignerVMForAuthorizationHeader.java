@@ -63,23 +63,23 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 		final String canonicalizedQueryParameters = getCanonicalizedQueryString(query.getQueryParameters());
 
 		// canonicalize the various components of the request
-		final String canonicalRequest = getCanonicalRequest(query.getPath(), query.getHttpMethod(), canonicalizedQueryParameters,
+		final String canonicalRequest = getCanonicalRequest(query.getPath(), query.getMethod(), canonicalizedQueryParameters,
 				canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
 
 		// construct the string to be signed
 		final String dateStamp = DateTimeFormatter.ofPattern(DateStringFormat).format(now);
-		final String scope = dateStamp + "/" + query.getRegionName() + "/" + query.getServiceName() + "/" + TERMINATOR;
+		final String scope = dateStamp + "/" + query.getRegion() + "/" + query.getService() + "/" + TERMINATOR;
 		final String stringToSign = getStringToSign(dateTimeStamp, scope, canonicalRequest);
 
 		// compute the signing key
-		final byte[] kSecret = (SCHEME + query.getAwsSecretKey()).getBytes();
+		final byte[] kSecret = (SCHEME + query.getSecretKey()).getBytes();
 		final byte[] kDate = sign(dateStamp, kSecret);
-		final byte[] kRegion = sign(query.getRegionName(), kDate);
-		final byte[] kService = sign(query.getServiceName(), kRegion);
+		final byte[] kRegion = sign(query.getRegion(), kDate);
+		final byte[] kService = sign(query.getService(), kRegion);
 		final byte[] kSigning = sign(TERMINATOR, kService);
 		final byte[] signature = sign(stringToSign, kSigning);
 
-		final String credentialsAuthorizationHeader = "Credential=" + query.getAwsAccessKey() + "/" + scope;
+		final String credentialsAuthorizationHeader = "Credential=" + query.getAccessKey() + "/" + scope;
 		final String signedHeadersAuthorizationHeader = "SignedHeaders=" + canonicalizedHeaderNames;
 		final String signatureAuthorizationHeader = "Signature=" + Hex.encodeHexString(signature);
 

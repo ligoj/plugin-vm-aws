@@ -2,10 +2,13 @@ package org.ligoj.app.plugin.vm.aws;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,10 +41,12 @@ import org.ligoj.app.plugin.vm.model.VmStatus;
 import org.ligoj.app.resource.plugin.AbstractXmlApiToolPluginResource;
 import org.ligoj.app.resource.plugin.CurlProcessor;
 import org.ligoj.app.resource.plugin.CurlRequest;
+import org.ligoj.bootstrap.core.csv.CsvForBean;
 import org.ligoj.bootstrap.core.resource.BusinessException;
 import org.ligoj.bootstrap.core.security.SecurityHelper;
 import org.ligoj.bootstrap.core.validation.ValidationJsonException;
 import org.ligoj.bootstrap.resource.system.configuration.ConfigurationResource;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Element;
@@ -54,7 +59,7 @@ import org.xml.sax.SAXException;
 @Path(VmAwsPluginResource.URL)
 @Service
 @Produces(MediaType.APPLICATION_JSON)
-public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implements VmServicePlugin {
+public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implements VmServicePlugin, InitializingBean {
 
 	/**
 	 * Plug-in key.
@@ -97,6 +102,11 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	private static final String DEFAULT_REGION = "eu-west-1";
 
 	/**
+	 * EC2 state for terminated.
+	 */
+	private static final int STATE_TERMINATED = 80;
+
+	/**
 	 * VM operation mapping.
 	 * 
 	 * STOP :<br>
@@ -116,12 +126,25 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		OPERATION_TO_ACTION.put(VmOperation.REBOOT, "RebootInstances");
 		OPERATION_TO_ACTION.put(VmOperation.RESET, "RebootInstances");
 	}
+	/**
+	 * VM code to {@link VmStatus} mapping.
+	 */
+	public static final Map<Integer, VmStatus> CODE_TO_STATUS = new HashMap<>();
+	static {
+		CODE_TO_STATUS.put(16, VmStatus.POWERED_ON);
+		CODE_TO_STATUS.put(48, VmStatus.POWERED_OFF);
+		CODE_TO_STATUS.put(STATE_TERMINATED, VmStatus.POWERED_OFF); // TERMINATED
+		CODE_TO_STATUS.put(0, VmStatus.POWERED_ON); // PENDING - BUSY
+		CODE_TO_STATUS.put(32, VmStatus.POWERED_OFF); // SHUTTING_DOWN - BUSY
+		CODE_TO_STATUS.put(64, VmStatus.POWERED_OFF); // STOPPING - BUSY
+	}
+	/**
+	 * VM busy AWS state codes
+	 */
+	public static final int[] BUSY_CODES = { 0, 32, 64 };
 
 	@Autowired
 	private AWS4SignerVMForAuthorizationHeader signer;
-
-	@Autowired
-	private NodeRepository nodeRepository;
 
 	@Autowired
 	private SecurityHelper securityHelper;
@@ -129,43 +152,18 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	@Autowired
 	private ConfigurationResource configuration;
 
-	/**
-	 * Create Curl request for AWS service. Initialize default values for
-	 * awsAccessKey, awsSecretKey and regionName and compute signature.
-	 * 
-	 * @param signatureBuilder
-	 *            {@link AWS4SignatureQueryBuilder} initialized with values used
-	 *            for this call (headers, parameters, host, ...)
-	 * @param subscription
-	 *            Subscription's identifier.
-	 * @return initialized request
-	 */
-	protected CurlRequest prepareCallAWSService(final AWS4SignatureQueryBuilder signatureBuilder, final int subscription) {
-		return prepareCallAWSService(signatureBuilder, subscriptionResource.getParameters(subscription));
-	}
+	@Autowired
+	private NodeRepository nodeRepository;
+
+	@Autowired
+	private CsvForBean csvForBean;
 
 	/**
-	 * Create Curl request for AWS service. Initialize default values for
-	 * awsAccessKey, awsSecretKey and regionName and compute signature.
+	 * Well known instance types with details and load on initialization.
 	 * 
-	 * @param signatureBuilder
-	 *            {@link AWS4SignatureQueryBuilder} initialized with values used
-	 *            for this call (headers, parameters, host, ...)
-	 * @param subscription
-	 *            Subscription's identifier.
-	 * @return initialized request
+	 * @see "csv/instance-type-details.csv"
 	 */
-	protected CurlRequest prepareCallAWSService(final AWS4SignatureQueryBuilder signatureBuilder, final Map<String, String> parameters) {
-		final AWS4SignatureQuery signatureQuery = signatureBuilder.awsAccessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
-				.awsSecretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).regionName(getRegion()).build();
-		final String authorization = signer.computeSignature(signatureQuery);
-		final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
-				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
-		request.getHeaders().putAll(signatureQuery.getHeaders());
-		request.getHeaders().put("Authorization", authorization);
-		request.setSaveResponse(true);
-		return request;
-	}
+	private Map<String, InstanceType> instanceTypes;
 
 	/**
 	 * Validate the VM configuration.
@@ -180,7 +178,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 
 		// Get the VM if exists
 		return this.getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId).stream().findFirst()
-				.orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-vm", instanceId));
+				.orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
 	}
 
 	@Override
@@ -190,7 +188,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 
 	/**
 	 * Find the virtual machines matching to the given criteria. Look into
-	 * virtual machine name only.
+	 * virtual machine name and identifier.
 	 *
 	 * @param node
 	 *            the node to be tested with given parameters.
@@ -201,29 +199,17 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	@GET
 	@Path("{node:[a-z].*}/{criteria}")
 	@Consumes(MediaType.APPLICATION_JSON)
-	public List<Vm> findAllByName(@PathParam("node") final String node, @PathParam("criteria") final String criteria)
+	public List<Vm> findAllByNameOrId(@PathParam("node") final String node, @PathParam("criteria") final String criteria)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		// Check the node exists
 		if (nodeRepository.findOneVisible(node, securityHelper.getLogin()) == null) {
 			return Collections.emptyList();
 		}
 
-		// Get the VMs and parse them
-		return this.getDescribeInstances(pvResource.getNodeParameters(node), "&Filter.1.Name=tag:Name&Filter.1.Value.1=" + criteria);
-	}
-
-	/**
-	 * call aws to obtain the list of available instances for a region.
-	 *
-	 *
-	 * @param parameters
-	 *            Subscription parameters.
-	 * @param region
-	 * @return
-	 */
-	public List<Vm> getDescribeInstances(final Map<String, String> parameters)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		return getDescribeInstances(parameters, null);
+		// Get all VMs and then filter by its name or id
+		return this.getDescribeInstances(pvResource.getNodeParameters(node), "").stream().filter(
+				vm -> StringUtils.containsIgnoreCase(vm.getName(), criteria) || StringUtils.containsIgnoreCase(vm.getId(), criteria))
+				.sorted().collect(Collectors.toList());
 	}
 
 	/**
@@ -249,25 +235,56 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	/**
+	 * Build described beans from a XML result.
+	 */
+	private List<Vm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
+		final NodeList items = getNodeInstances(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toVm((Element) n)).collect(Collectors.toList());
+	}
+
+	/**
 	 * Build a described {@link Vm} bean from a XML VMRecord entry.
 	 */
 	private Vm toVm(final Element record) {
 		final Vm result = new Vm();
 		result.setId(record.getElementsByTagName("instanceId").item(0).getTextContent());
-		result.setName(record.getElementsByTagName("keyName").item(0).getTextContent());
-		result.setDescription(record.getElementsByTagName("instanceType").item(0).getTextContent());
+		result.setName(Objects.toString(getName(record), result.getId()));
+		result.setDescription(getTag(record, "description"));
 		final Element stateElement = (Element) record.getElementsByTagName("instanceState").item(0);
-		result.setStatus(stateElement.getElementsByTagName("code").item(0).getTextContent().equals("16") ? VmStatus.POWERED_ON
-				: VmStatus.POWERED_OFF);
+		final int state = Integer.valueOf(stateElement.getElementsByTagName("code").item(0).getTextContent());
+		result.setStatus(CODE_TO_STATUS.get(state));
+		result.setBusy(Arrays.binarySearch(BUSY_CODES, state) >= 0);
+		result.setContainerName(record.getElementsByTagName("vpcId").item(0).getTextContent());
+
+		final InstanceType type = instanceTypes.get(record.getElementsByTagName("instanceType").item(0).getTextContent());
+		// Instance type details
+		result.setMemoryMB(Optional.ofNullable(type).map(InstanceType::getRam).map(m -> (int) (m * 1024d)).orElse(0));
+		result.setNumberOfCpus(Optional.ofNullable(type).map(InstanceType::getCpu).orElse(0));
+		result.setDeployed(state != STATE_TERMINATED);
 		return result;
 	}
 
 	/**
-	 * Build described beans from a XML result.
+	 * Return the tag value or <code>null</code>
 	 */
-	private List<Vm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
-		final NodeList tags = getNodeInstances(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
-		return IntStream.range(0, tags.getLength()).mapToObj(tags::item).map(n -> (Element) n).map(this::toVm).collect(Collectors.toList());
+	private String getTag(final Element record, final String name) {
+		final NodeList tags = ((Element) record.getElementsByTagName("tagSet").item(0)).getElementsByTagName("item");
+		for (int index = 0; index < tags.getLength(); index++) {
+			final Element tag = (Element) tags.item(index);
+			if (tag.getElementsByTagName("key").item(0).getTextContent().equalsIgnoreCase(name)) {
+				return tag.getElementsByTagName("value").item(0).getTextContent();
+			}
+		}
+
+		// No tag found
+		return null;
+	}
+
+	/**
+	 * Return the tag "name" value or <code>null</code>
+	 */
+	private String getName(final Element record) {
+		return getTag(record, "name");
 	}
 
 	protected NodeList getNodeInstances(final String input, final String tag)
@@ -304,20 +321,11 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * 
 	 * @param subscription
 	 *            subscription
-	 * @return true if aws connection is up
-	 * @throws Exception
+	 * @return <code>true</code> if AWS connection is up
 	 */
 	@Override
 	public boolean checkStatus(final String node, final Map<String, String> parameters) throws Exception {
-		// Status is UP <=> Administration access is UP (if defined)
-		final AWS4SignatureQueryBuilder signatureQueryBuilder = AWS4SignatureQuery.builder().httpMethod("GET").serviceName("s3")
-				.host("s3-" + getRegion() + ".amazonaws.com").path("/");
-		return new CurlProcessor().process(prepareCallAWSService(signatureQueryBuilder, parameters));
-	}
-
-	@Override
-	public void delete(int subscription, boolean remoteData) throws Exception {
-		// No custom data by default
+		return validateAccess(parameters);
 	}
 
 	@Override
@@ -338,16 +346,10 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	private String processEC2(final Map<String, String> parameters, final String query) {
-		final AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().awsAccessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
-				.awsSecretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).httpMethod("POST").path("/").serviceName("ec2")
-				.host("ec2." + getRegion() + ".amazonaws.com").regionName(getRegion()).body(query).build();
-
-		final String authorization = signer.computeSignature(signatureQuery);
-		final CurlRequest request = new CurlRequest(signatureQuery.getHttpMethod(),
-				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
-		request.getHeaders().putAll(signatureQuery.getHeaders());
-		request.getHeaders().put("Authorization", authorization);
-		request.setSaveResponse(true);
+		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().accessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
+				.secretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).path("/").service("ec2")
+				.host("ec2." + getRegion() + ".amazonaws.com").body(query);
+		final CurlRequest request = newRequest(signatureQuery, parameters);
 		new CurlProcessor().process(request);
 		return request.getResponse();
 	}
@@ -357,8 +359,70 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		return processEC2(parameters, queryProvider.apply(parameters));
 	}
 
+	/**
+	 * Create Curl request for AWS service. Initialize default values for
+	 * awsAccessKey, awsSecretKey and regionName and compute signature.
+	 * 
+	 * @param signatureBuilder
+	 *            {@link AWS4SignatureQueryBuilder} initialized with values used
+	 *            for this call (headers, parameters, host, ...)
+	 * @param subscription
+	 *            Subscription's identifier.
+	 * @return initialized request
+	 */
+	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder signatureBuilder, final int subscription) {
+		return newRequest(signatureBuilder, subscriptionResource.getParameters(subscription));
+	}
+
+	/**
+	 * Create Curl request for AWS service. Initialize default values for
+	 * awsAccessKey, awsSecretKey and regionName and compute signature.
+	 * 
+	 * @param signatureBuilder
+	 *            {@link AWS4SignatureQueryBuilder} initialized with values used
+	 *            for this call (headers, parameters, host, ...)
+	 * @param subscription
+	 *            Subscription's identifier.
+	 * @return initialized request
+	 */
+	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder signatureBuilder, final Map<String, String> parameters) {
+		final AWS4SignatureQuery signatureQuery = signatureBuilder.accessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
+				.secretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).region(getRegion()).build();
+		final String authorization = signer.computeSignature(signatureQuery);
+		final CurlRequest request = new CurlRequest(signatureQuery.getMethod(),
+				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
+		request.getHeaders().putAll(signatureQuery.getHeaders());
+		request.getHeaders().put("Authorization", authorization);
+		request.setSaveResponse(true);
+		return request;
+	}
+
+	/**
+	 * Return the default region for this plug-in.
+	 */
 	protected String getRegion() {
 		return configuration.get(CONF_REGION, DEFAULT_REGION);
 	}
 
+	/**
+	 * Check AWS connection and account.
+	 * 
+	 * @param parameters
+	 *            Subscription parameters.
+	 * @return <code>true</code> if AWS connection is up
+	 */
+	protected boolean validateAccess(final Map<String, String> parameters) throws Exception {
+		// Call S3 ls service
+		// TODO Use EC2 instead of S3
+		final AWS4SignatureQueryBuilder signatureQueryBuilder = AWS4SignatureQuery.builder().method("GET").service("s3")
+				.host("s3-" + getRegion() + ".amazonaws.com").path("/");
+		return new CurlProcessor().process(newRequest(signatureQueryBuilder, parameters));
+	}
+
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		instanceTypes = csvForBean.toBean(InstanceType.class, "csv/instance-type-details.csv").stream()
+				.collect(Collectors.toMap(InstanceType::getId, Function.identity()));
+
+	}
 }

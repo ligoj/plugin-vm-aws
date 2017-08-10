@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NonNull;
 
 /**
- * query used to sign AWS V4 API Query
+ * Query used to sign AWS V4 API Query
  * 
  * @author alocquet
  */
@@ -26,31 +26,34 @@ public class AWS4SignatureQuery {
 	 */
 	@NonNull
 	private String path;
+
 	/**
-	 * http method : GET, POST, ...
+	 * HTTP method such as "POST", "GET",... Default is "POST"
 	 */
 	@NonNull
-	private String httpMethod;
+	@Builder.Default
+	private String method = "POST";
+	
 	/**
-	 * aws service name : s3, ec2, ...
+	 * AWS service name : s3, ec2, ...
 	 */
 	@NonNull
-	private String serviceName;
+	private String service;
 	/**
 	 * region name : eu-west-1, ...
 	 */
 	@NonNull
-	private String regionName;
+	private String region;
 	/**
 	 * AWS Access Key
 	 */
 	@NonNull
-	private String awsAccessKey;
+	private String accessKey;
 	/**
 	 * AWS Secret Key : I won't give my secret key for the javadoc :)
 	 */
 	@NonNull
-	private String awsSecretKey;
+	private String secretKey;
 	/**
 	 * query headers
 	 */
@@ -65,9 +68,7 @@ public class AWS4SignatureQuery {
 	private String body;
 
 	/**
-	 * builder class : used to initialize some attributes with defautl values
-	 * 
-	 * @author alocquet
+	 * Builder class : used to initialize some attributes with default values
 	 */
 	public static class AWS4SignatureQueryBuilder {
 		/**

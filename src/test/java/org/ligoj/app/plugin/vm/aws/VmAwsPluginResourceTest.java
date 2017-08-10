@@ -2,11 +2,11 @@ package org.ligoj.app.plugin.vm.aws;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,20 +26,26 @@ import org.ligoj.app.model.Parameter;
 import org.ligoj.app.model.ParameterValue;
 import org.ligoj.app.model.Project;
 import org.ligoj.app.model.Subscription;
+import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
+import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmStatus;
 import org.ligoj.app.resource.node.ParameterValueResource;
+import org.ligoj.app.resource.plugin.CurlRequest;
 import org.ligoj.app.resource.subscription.SubscriptionResource;
-import org.ligoj.bootstrap.core.IDescribableBean;
+import org.ligoj.bootstrap.core.SpringUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
 import org.ligoj.bootstrap.core.validation.ValidationJsonException;
+import org.mockito.ArgumentMatcher;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-
-import com.github.tomakehurst.wiremock.stubbing.Scenario;
 
 import net.sf.ehcache.CacheManager;
 
@@ -51,6 +57,9 @@ import net.sf.ehcache.CacheManager;
 @Rollback
 @Transactional
 public class VmAwsPluginResourceTest extends AbstractServerTest {
+
+	private static final String MOCK_URL = "http://localhost:" + MOCK_PORT + "/mock";
+
 	@Autowired
 	private VmAwsPluginResource resource;
 
@@ -65,6 +74,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Before
 	public void prepareData() throws IOException {
 		// Only with Spring context
+		persistSystemEntities();
 		persistEntities("csv", new Class[] { Node.class, Parameter.class, Project.class, Subscription.class, ParameterValue.class },
 				StandardCharsets.UTF_8.name());
 		this.subscription = getSubscription("gStack");
@@ -76,259 +86,275 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		CacheManager.getInstance().getCache("curl-tokens").removeAll();
 	}
 
-	/**
-	 * Return the subscription identifier of the given project. Assumes there is only one subscription for a service.
-	 */
-	protected int getSubscription(final String project) {
-		return getSubscription(project, VmAwsPluginResource.KEY);
-	}
-
 	@Test
 	public void delete() throws Exception {
 		resource.delete(subscription, false);
 	}
 
 	@Test
-	public void getVersion() throws Exception {
-		prepareMockVersion();
-
-		final String version = resource.getVersion(subscription);
-		Assert.assertEquals("5.5.4.2831206 Fri Jun 19 15:07:32 CEST 2015", version);
-	}
-
-	@Test
-	public void getLastVersion() throws Exception {
-		final String lastVersion = resource.getLastVersion();
-		Assert.assertNotNull(lastVersion);
-		Assert.assertTrue(lastVersion.compareTo("6.0") >= 0);
-	}
-
-	@Test
 	public void link() throws Exception {
-		prepareMockItem();
-		httpServer.start();
+		mockAwsVm().link(this.subscription);
+	}
 
-		// Invoke create for an already created entity, since for now, there is nothing but validation pour SonarQube
-		resource.link(this.subscription);
-
-		// Nothing to validate for now...
+	@Test(expected = ValidationJsonException.class)
+	public void linkFailed() throws Exception {
+		mockAws("ec2.eu-west-1.amazonaws.com",
+				"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
+						.link(this.subscription);
 	}
 
 	@Test
 	public void validateVmNotFound() throws Exception {
 		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "vcloud-vm"));
-		prepareMockHome();
+		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "aws-instance-id"));
 
-		// Not find VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody("<a/>")));
-		httpServer.start();
-
-		final Map<String, String> parameters = pvResource.getNodeParameters("service:vm:vcloud:obs-fca-info");
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
-		resource.validateVm(parameters);
+		mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
+						.validateVm(parameters);
 	}
 
 	@Test
 	public void validateVm() throws Exception {
-		prepareMockItem();
-
-		final Map<String, String> parameters = pvResource.getNodeParameters("service:vm:vcloud:obs-fca-info");
-		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "75aa69b4-8cff-40cd-9338-9abafc7d5935");
-		final Vm vm = resource.validateVm(parameters);
+		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
+		final Vm vm = mockAwsVm().validateVm(parameters);
 		checkVm(vm);
-		Assert.assertTrue(vm.isDeployed());
-	}
-
-	private void checkVm(final Vm item) {
-		checkItem(item);
-		Assert.assertEquals("High Performances", item.getStorageProfileName());
-		Assert.assertEquals(VmStatus.POWERED_OFF, item.getStatus());
-		Assert.assertEquals(6, item.getNumberOfCpus());
-		Assert.assertFalse(item.isBusy());
-		Assert.assertEquals("vApp_BPR", item.getContainerName());
-		Assert.assertEquals(28672, item.getMemoryMB());
 	}
 
 	@Test
 	public void checkSubscriptionStatus() throws Exception {
-		prepareMockItem();
-		final SubscriptionStatusWithData nodeStatusWithData = resource
-				.checkSubscriptionStatus(subscriptionResource.getParametersNoCheck(subscription));
+		final SubscriptionStatusWithData nodeStatusWithData = mockAwsVm().checkSubscriptionStatus(subscription, null,
+				subscriptionResource.getParametersNoCheck(subscription));
 		Assert.assertTrue(nodeStatusWithData.getStatus().isUp());
 		checkVm((Vm) nodeStatusWithData.getData().get("vm"));
 	}
 
-	private void prepareMockItem() throws IOException {
-		prepareMockHome();
-
-		// Find a specific VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(IOUtils.toString(
-				new ClassPathResource("mock-server/vcloud/vcloud-query-vm-poweredoff-deployed.xml").getInputStream(), StandardCharsets.UTF_8))));
-		httpServer.start();
-	}
-
-	private void prepareMockFindAll() throws IOException {
-		prepareMockHome();
-
-		// Find a list of VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(
-				IOUtils.toString(new ClassPathResource("mock-server/vcloud/vcloud-query-search.xml").getInputStream(), StandardCharsets.UTF_8))));
-		httpServer.start();
-	}
-
 	@Test
 	public void checkStatus() throws Exception {
-		prepareMockVersion();
-		Assert.assertTrue(resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription)));
+		Assert.assertTrue(mockAws("s3-eu-west-1.amazonaws.com", null, HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"))
+						.checkStatus("service:vm:aws:test", pvResource.getNodeParameters("service:vm:aws:test")));
 	}
 
 	@Test
-	public void checkStatusAuthenticationFailed() throws Exception {
-		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_ACCOUNT, "vcloud-login"));
-		httpServer.stubFor(post(urlPathEqualTo("/sessions")).willReturn(aResponse().withStatus(HttpStatus.SC_FORBIDDEN)));
-		httpServer.start();
-		resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription));
+	public void findAllByNameOrIdNoVisible() throws Exception {
+		final List<Vm> projects = resource.findAllByNameOrId("service:vm:aws:any", "INSTANCE_ ");
+		Assert.assertEquals(0, projects.size());
 	}
 
 	@Test
-	public void checkStatusAuthenticationFailedThenSucceed() throws Exception {
-		prepareMockVersion();
-		httpServer.stubFor(post(urlPathEqualTo("/sessions")).inScenario("auth").whenScenarioStateIs(Scenario.STARTED)
-				.willReturn(aResponse().withStatus(HttpStatus.SC_FORBIDDEN)).willSetStateTo("failed"));
-		httpServer.stubFor(post(urlPathEqualTo("/sessions")).inScenario("auth").whenScenarioStateIs("failed")
-				.willReturn(aResponse().withStatus(HttpStatus.SC_OK).withHeader("x-vcloud-authorization", "token")));
-		httpServer.stubFor(get(urlPathEqualTo("/admin")).willReturn(aResponse().withStatus(HttpStatus.SC_OK)
-				.withBody(IOUtils.toString(new ClassPathResource("mock-server/vcloud/vcloud-admin.xml").getInputStream(), StandardCharsets.UTF_8))));
-		Assert.assertTrue(resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription)));
-		httpServer.start();
-		resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription));
+	public void findAllByNameOrId() throws Exception {
+		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
+						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
+		Assert.assertEquals(6, projects.size());
+		checkVm(projects.get(0));
 	}
 
 	@Test
-	public void checkStatusNotAdmin() throws Exception {
-		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_ACCOUNT, "vcloud-admin"));
-		prepareMockHome();
-		httpServer.start();
-		resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription));
+	public void findAllByNameOrIdId() throws Exception {
+		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
+						.findAllByNameOrId("service:vm:aws:test", "i-00000006");
+		Assert.assertEquals(1, projects.size());
+		final Vm item = projects.get(0);
+		Assert.assertEquals("i-00000006", item.getId());
+		Assert.assertEquals("i-00000006", item.getName());
 	}
 
 	@Test
-	public void checkStatusNotAccess() throws Exception {
-		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_ACCOUNT, "vcloud-admin"));
-		httpServer.stubFor(
-				post(urlPathEqualTo("/sessions")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withHeader("x-vcloud-authorization", "token")));
-		httpServer.start();
-		resource.checkStatus(subscriptionResource.getParametersNoCheck(subscription));
+	public void findAllByNameOrIdEmpty() throws Exception {
+		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
+						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
+		Assert.assertEquals(0, projects.size());
 	}
 
-	private void prepareMockVersion() throws IOException {
-		prepareMockHome();
-
-		// Version from "/admin"
-		httpServer.stubFor(get(urlPathEqualTo("/admin")).willReturn(aResponse().withStatus(HttpStatus.SC_OK)
-				.withBody(IOUtils.toString(new ClassPathResource("mock-server/vcloud/vcloud-admin.xml").getInputStream(), StandardCharsets.UTF_8))));
-		httpServer.start();
-	}
-
-	private void prepareMockHome() {
-		httpServer.stubFor(
-				post(urlPathEqualTo("/sessions")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withHeader("x-vcloud-authorization", "token")));
-	}
-
-	@Test
-	public void findAllByName() throws Exception {
-		prepareMockFindAll();
-		httpServer.start();
-
-		final List<Vm> projects = resource.findAllByName("service:vm:vcloud:obs-fca-info", "sc");
-		Assert.assertEquals(3, projects.size());
-		checkItem(projects.get(0));
-	}
-
-	@Test
-	public void execute() throws Exception {
-		httpServer.stubFor(post(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/power/action/powerOn"))
-				.willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody("<Task>...</Task>")));
-		prepareMockItem();
-		resource.execute(subscription, VmOperation.ON);
-	}
-
-	/**
-	 * Shutdown execution requires an undeploy action.
-	 */
 	@Test
 	public void executeShutDown() throws Exception {
-		prepareMockHome();
+		execute(VmOperation.SHUTDOWN, "Action=StopInstances&InstanceId.1=i-12345678");
+	}
 
-		// Find a specific VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(IOUtils
-				.toString(new ClassPathResource("mock-server/vcloud/vcloud-query-vm-poweredon.xml").getInputStream(), StandardCharsets.UTF_8))));
+	@Test
+	public void executeOff() throws Exception {
+		execute(VmOperation.OFF, "Action=StopInstances&Force=true&InstanceId.1=i-12345678");
+	}
 
-		// Stub the undeploy action
-		httpServer.stubFor(post(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/action/undeploy"))
-				.willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody("<Task>...</Task>")));
+	@Test
+	public void executeStart() throws Exception {
+		execute(VmOperation.ON, "Action=StartInstances&InstanceId.1=i-12345678");
+	}
+
+	@Test
+	public void executeReboot() throws Exception {
+		execute(VmOperation.REBOOT, "Action=RebootInstances&InstanceId.1=i-12345678");
+	}
+
+	@Test
+	public void executeReset() throws Exception {
+		execute(VmOperation.RESET, "Action=RebootInstances&InstanceId.1=i-12345678");
+	}
+
+	@SuppressWarnings("unchecked")
+	@Test(expected = BusinessException.class)
+	public void executeUnamanagedAction() throws Exception {
+		final VmAwsPluginResource resource = Mockito.spy(this.resource);
+		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
+		mockRequest.setSaveResponse(true);
+		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
+				ArgumentMatchers.any(Map.class));
+		resource.execute(subscription, VmOperation.SUSPEND);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Test(expected = BusinessException.class)
+	public void executeFailed() throws Exception {
+		final VmAwsPluginResource resource = Mockito.spy(this.resource);
+		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
+		mockRequest.setSaveResponse(true);
+		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
+
+			@Override
+			public boolean matches(final AWS4SignatureQueryBuilder argument) {
+				final AWS4SignatureQuery query = argument.region("default").build();
+				return query.getHost().equals("ec2.eu-west-1.amazonaws.com")
+						&& query.getBody().equals("Action=StopInstances&InstanceId.1=i-12345678");
+			}
+		}), ArgumentMatchers.any(Map.class));
+		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_INTERNAL_SERVER_ERROR)));
 		httpServer.start();
 		resource.execute(subscription, VmOperation.SHUTDOWN);
 	}
 
 	/**
-	 * Power Off execution requires an undeploy action.
+	 * prepare call to AWS
+	 * 
+	 * @throws Exception
+	 *             exception
 	 */
 	@Test
-	public void executeOff() throws Exception {
-		prepareMockHome();
+	public void newRequest() throws Exception {
+		final CurlRequest request = resource.newRequest(AWS4SignatureQuery.builder().host("mock").path("/").body("body").service("s3"),
+				subscription);
+		Assert.assertTrue(request.getHeaders().containsKey("Authorization"));
+		Assert.assertEquals("https://mock/", request.getUrl());
+		Assert.assertEquals("POST", request.getMethod());
+		Assert.assertEquals("body", request.getContent());
+	}
 
-		// Find a specific VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(IOUtils
-				.toString(new ClassPathResource("mock-server/vcloud/vcloud-query-vm-poweredon.xml").getInputStream(), StandardCharsets.UTF_8))));
+	@Test
+	public void checkSubscriptionStatusUp() throws Exception {
+		final SubscriptionStatusWithData status = mockAwsVm().checkSubscriptionStatus(subscription, null,
+				pvResource.getSubscriptionParameters(subscription));
+		Assert.assertTrue(status.getStatus().isUp());
+	}
 
-		// Stub the undeploy action
-		httpServer.stubFor(post(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/action/undeploy"))
-				.willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody("<Task>...</Task>")));
+	private VmAwsPluginResource mockAwsVm() throws IOException {
+		return mockAws("ec2.eu-west-1.amazonaws.com",
+				"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
+	}
+
+	@Test(expected = ValidationJsonException.class)
+	public void checkSubscriptionStatusDown() throws Exception {
+		final VmAwsPluginResource resource = Mockito.spy(this.resource);
+		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
+		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
+		final SubscriptionStatusWithData status = resource.checkSubscriptionStatus(subscription, null, parameters);
+		Assert.assertFalse(status.getStatus().isUp());
+	}
+
+	@Test
+	public void validateAccessUp() throws Exception {
+		Assert.assertTrue(validateAccess(HttpStatus.SC_OK));
+	}
+
+	@Test
+	public void validateAccessDown() throws Exception {
+		Assert.assertFalse(validateAccess(HttpStatus.SC_FORBIDDEN));
+	}
+
+	private void execute(final VmOperation operation, final String body) {
+		mockAws("ec2.eu-west-1.amazonaws.com", body, HttpStatus.SC_OK, "OK").execute(subscription, operation);
+	}
+
+	@SuppressWarnings("unchecked")
+	private VmAwsPluginResource mockAws(final String host, final String body, final int status, final String response) {
+		final VmAwsPluginResource resource = Mockito.spy(this.resource);
+		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
+		mockRequest.setSaveResponse(true);
+		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
+
+			@Override
+			public boolean matches(final AWS4SignatureQueryBuilder argument) {
+				final AWS4SignatureQuery query = argument.region("any").accessKey("default").secretKey("default").build();
+				return query.getHost().equals(host) && (body == query.getBody() || query.getBody().equals(body));
+			}
+		}), ArgumentMatchers.any(Map.class));
+		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(status).withBody(response)));
 		httpServer.start();
-		resource.execute(subscription, VmOperation.OFF);
+		return resource;
+	}
+
+	private void checkVm(final Vm item) {
+		Assert.assertEquals("i-12345678", item.getId());
+		Assert.assertEquals("INSTANCE_ON", item.getName());
+		Assert.assertEquals("Custom description", item.getDescription());
+		Assert.assertNull(item.getStorageProfileName());
+		Assert.assertEquals(VmStatus.POWERED_ON, item.getStatus());
+		Assert.assertFalse(item.isBusy());
+		Assert.assertEquals("vpc-11112222", item.getContainerName());
+		Assert.assertTrue(item.isDeployed());
+
+		// From the instance type details
+		Assert.assertEquals(1024, item.getMemoryMB());
+		Assert.assertEquals(1, item.getNumberOfCpus());
+	}
+
+	private boolean validateAccess(int status) throws Exception {
+		VmAwsPluginResource resource = new VmAwsPluginResource();
+		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
+		resource = Mockito.spy(resource);
+		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
+		mockRequest.setSaveResponse(true);
+		Mockito.doReturn("any").when(resource).getRegion();
+		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
+				ArgumentMatchers.anyMap());
+
+		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(status)));
+		httpServer.start();
+		return resource.validateAccess(pvResource.getNodeParameters("service:vm:aws:test"));
 	}
 
 	/**
-	 * Power Off execution requires an undeploy action.
+	 * Configuration class used to mock AWS calls
 	 */
-	@Test(expected = BusinessException.class)
-	public void executeInvalidAction() throws Exception {
-		prepareMockHome();
-
-		// Find a specific VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(IOUtils
-				.toString(new ClassPathResource("mock-server/vcloud/vcloud-query-vm-poweredon.xml").getInputStream(), StandardCharsets.UTF_8))));
-
-		// Stub the undeploy action
-		httpServer.stubFor(post(urlPathEqualTo("/vApp/vm-75aa69b4-8cff-40cd-9338-9abafc7d5935/action/undeploy"))
-				.willReturn(aResponse().withStatus(HttpStatus.SC_BAD_REQUEST).withBody("<Error>...</Error>")));
-		httpServer.start();
-		resource.execute(subscription, VmOperation.OFF);
+	@Configuration
+	public static class MockConfiguration {
+		@Bean
+		VmAwsPluginResource vmAwsPluginResource() {
+			return new VmAwsPluginResource() {
+				@Override
+				public boolean validateAccess(final Map<String, String> parameters) throws Exception {
+					return true;
+				}
+			};
+		}
 	}
 
 	/**
-	 * Shutdown execution on VM that is already powered off.
+	 * Return the subscription identifier of the given project. Assumes there is
+	 * only one subscription for a service.
 	 */
-	@Test
-	public void executeUselessAction() throws Exception {
-		prepareMockHome();
-
-		// Find a specific VM
-		httpServer.stubFor(get(urlPathEqualTo("/query")).willReturn(aResponse().withStatus(HttpStatus.SC_OK).withBody(IOUtils
-				.toString(new ClassPathResource("mock-server/vcloud/vcloud-query-vm-poweredon.xml").getInputStream(), StandardCharsets.UTF_8))));
-		httpServer.start();
-		resource.execute(subscription, VmOperation.ON);
+	protected int getSubscription(final String project) {
+		return getSubscription(project, VmAwsPluginResource.KEY);
 	}
 
-	private void checkItem(final IDescribableBean<String> item) {
-		Assert.assertEquals("75aa69b4-8cff-40cd-9338-9abafc7d5935", item.getId());
-		Assert.assertEquals("sca", item.getName());
-		Assert.assertEquals("CentOS 4/5/6/7 (64-bit)", item.getDescription());
+	@Override
+	protected String getAuthenticationName() {
+		return DEFAULT_USER;
 	}
-
 }
