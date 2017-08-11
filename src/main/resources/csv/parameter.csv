@@ -1,5 +1,5 @@
-id;owner.id;data;mandatory;type;mode;secured
+id;owner.id;data;mandatory;type;secured
 service:vm:aws:access-key-id;service:vm:aws;{"pattern":"\\w{16,128}"};true;TEXT
-service:vm:aws:secret-access-key;service:vm:aws;{"pattern":".{20,}"};true;TEXT;ALL;true
+service:vm:aws:secret-access-key;service:vm:aws;{"pattern":".{20,}"};true;TEXT;true
 service:vm:aws:account;service:vm:aws;;true;TEXT
-service:vm:aws:id;service:vm:aws;{"pattern":"\\w{10,19}"};true;TEXT
+service:vm:aws:id;service:vm:aws;{"pattern":"[a-z]-\\w{8,17}"};true;TEXT
