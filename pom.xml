@@ -12,7 +12,7 @@
 	<artifactId>plugin-vm-aws</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
-	<name>Ligoj - Plugin VM AWS</name>
+	<name>Ligoj - Plugin VM AWS EC2</name>
 
 	<dependencies>
 		<dependency>
