@@ -61,6 +61,8 @@ import org.xml.sax.SAXException;
 @Produces(MediaType.APPLICATION_JSON)
 public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implements VmServicePlugin, InitializingBean {
 
+	private static final String API_VERSION = "2016-11-15";
+
 	/**
 	 * Plug-in key.
 	 */
@@ -225,7 +227,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 */
 	private List<Vm> getDescribeInstances(final Map<String, String> parameters, final String filter)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		String query = "Action=DescribeInstances&Version=2016-11-15";
+		String query = "Action=DescribeInstances";
 		if (StringUtils.isNotEmpty(filter)) {
 			query += filter;
 		}
@@ -345,18 +347,18 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		}
 	}
 
-	private String processEC2(final Map<String, String> parameters, final String query) {
-		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().accessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
-				.secretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).path("/").service("ec2")
-				.host("ec2." + getRegion() + ".amazonaws.com").body(query);
-		final CurlRequest request = newRequest(signatureQuery, parameters);
-		new CurlProcessor().process(request);
-		return request.getResponse();
-	}
-
 	private String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
 		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
 		return processEC2(parameters, queryProvider.apply(parameters));
+	}
+
+	private String processEC2(final Map<String, String> parameters, final String query) {
+		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().accessKey(parameters.get(PARAMETER_ACCESS_KEY_ID))
+				.secretKey(parameters.get(PARAMETER_SECRET_ACCESS_KEY)).path("/").service("ec2")
+				.host("ec2." + getRegion() + ".amazonaws.com").body(query + "&Version=" + API_VERSION);
+		final CurlRequest request = newRequest(signatureQuery, parameters);
+		new CurlProcessor().process(request);
+		return request.getResponse();
 	}
 
 	/**
