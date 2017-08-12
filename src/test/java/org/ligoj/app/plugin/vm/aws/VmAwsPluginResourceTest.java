@@ -111,7 +111,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
-		mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0", HttpStatus.SC_OK,
+		mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
 						.validateVm(parameters);
 	}
@@ -154,7 +154,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void findAllByNameOrIdId() throws Exception {
+	public void findAllByNameOrIdNoName() throws Exception {
 		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000006");
@@ -162,6 +162,17 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final Vm item = projects.get(0);
 		Assert.assertEquals("i-00000006", item.getId());
 		Assert.assertEquals("i-00000006", item.getName());
+	}
+
+	@Test
+	public void findAllByNameOrIdById() throws Exception {
+		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
+						.findAllByNameOrId("service:vm:aws:test", "i-00000005");
+		Assert.assertEquals(1, projects.size());
+		final Vm item = projects.get(0);
+		Assert.assertEquals("i-00000005", item.getId());
+		Assert.assertEquals("INSTANCE_STOPPING", item.getName());
 	}
 
 	@Test
@@ -175,6 +186,13 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void executeShutDown() throws Exception {
 		execute(VmOperation.SHUTDOWN, "Action=StopInstances&InstanceId.1=i-12345678");
+	}
+
+	@Test(expected = BusinessException.class)
+	public void executeError() throws Exception {
+		mockAws("ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15", HttpStatus.SC_BAD_REQUEST,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(), "UTF-8"))
+						.execute(subscription, VmOperation.SHUTDOWN);
 	}
 
 	@Test
@@ -220,7 +238,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 			public boolean matches(final AWS4SignatureQueryBuilder argument) {
 				final AWS4SignatureQuery query = argument.region("default").build();
 				return query.getHost().equals("ec2.eu-west-1.amazonaws.com")
-						&& query.getBody().equals("Action=StopInstances&InstanceId.1=i-12345678");
+						&& query.getBody().equals("Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15");
 			}
 		}), ArgumentMatchers.any(Map.class));
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_INTERNAL_SERVER_ERROR)));
@@ -244,25 +262,32 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		Assert.assertEquals("body", request.getContent());
 	}
 
-	@Test
-	public void checkSubscriptionStatusUp() throws Exception {
-		final SubscriptionStatusWithData status = mockAwsVm().checkSubscriptionStatus(subscription, null,
-				pvResource.getSubscriptionParameters(subscription));
-		Assert.assertTrue(status.getStatus().isUp());
-	}
-
 	private VmAwsPluginResource mockAwsVm() throws IOException {
 		return mockAws("ec2.eu-west-1.amazonaws.com",
-				"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678", HttpStatus.SC_OK,
+				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test(expected = ValidationJsonException.class)
 	public void checkSubscriptionStatusDown() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
+		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
+		mockRequest.setSaveResponse(true);
+		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
+
+			@Override
+			public boolean matches(final AWS4SignatureQueryBuilder argument) {
+				final AWS4SignatureQuery query = argument.region("any").accessKey("default").secretKey("default").build();
+				return query.getHost().equals("ec2.eu-west-1.amazonaws.com");
+			}
+		}), ArgumentMatchers.any(Map.class));
+		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(404).withBody("")));
+		httpServer.start();
+
 		final SubscriptionStatusWithData status = resource.checkSubscriptionStatus(subscription, null, parameters);
 		Assert.assertFalse(status.getStatus().isUp());
 	}
@@ -277,8 +302,10 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		Assert.assertFalse(validateAccess(HttpStatus.SC_FORBIDDEN));
 	}
 
-	private void execute(final VmOperation operation, final String body) {
-		mockAws("ec2.eu-west-1.amazonaws.com", body, HttpStatus.SC_OK, "OK").execute(subscription, operation);
+	private void execute(final VmOperation operation, final String body) throws Exception {
+		mockAws("ec2.eu-west-1.amazonaws.com", body + "&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstances.xml").getInputStream(), "UTF-8"))
+						.execute(subscription, operation);
 	}
 
 	@SuppressWarnings("unchecked")

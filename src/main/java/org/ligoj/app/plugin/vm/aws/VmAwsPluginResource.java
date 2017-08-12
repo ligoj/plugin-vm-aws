@@ -53,12 +53,15 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * AWS VM resource.
  */
 @Path(VmAwsPluginResource.URL)
 @Service
 @Produces(MediaType.APPLICATION_JSON)
+@Slf4j
 public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implements VmServicePlugin, InitializingBean {
 
 	private static final String API_VERSION = "2016-11-15";
@@ -174,8 +177,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 *            the space parameters.
 	 * @return Virtual Machine description.
 	 */
-	protected Vm validateVm(final Map<String, String> parameters)
-			throws ValidationJsonException, XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+	protected Vm validateVm(final Map<String, String> parameters) throws Exception {
 		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
@@ -240,7 +242,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * Build described beans from a XML result.
 	 */
 	private List<Vm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
-		final NodeList items = getNodeInstances(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
+		final NodeList items = getXmlTags(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toVm((Element) n)).collect(Collectors.toList());
 	}
 
@@ -249,16 +251,15 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 */
 	private Vm toVm(final Element record) {
 		final Vm result = new Vm();
-		result.setId(record.getElementsByTagName("instanceId").item(0).getTextContent());
+		result.setId(getTagText(record, "instanceId"));
 		result.setName(Objects.toString(getName(record), result.getId()));
-		result.setDescription(getTag(record, "description"));
-		final Element stateElement = (Element) record.getElementsByTagName("instanceState").item(0);
-		final int state = Integer.valueOf(stateElement.getElementsByTagName("code").item(0).getTextContent());
+		result.setDescription(getResourceTag(record, "description"));
+		final int state = getEc2State(record);
 		result.setStatus(CODE_TO_STATUS.get(state));
 		result.setBusy(Arrays.binarySearch(BUSY_CODES, state) >= 0);
-		result.setContainerName(record.getElementsByTagName("vpcId").item(0).getTextContent());
+		result.setContainerName(getTagText(record, "vpcId"));
 
-		final InstanceType type = instanceTypes.get(record.getElementsByTagName("instanceType").item(0).getTextContent());
+		final InstanceType type = instanceTypes.get(getTagText(record, "instanceType"));
 		// Instance type details
 		result.setMemoryMB(Optional.ofNullable(type).map(InstanceType::getRam).map(m -> (int) (m * 1024d)).orElse(0));
 		result.setNumberOfCpus(Optional.ofNullable(type).map(InstanceType::getCpu).orElse(0));
@@ -266,15 +267,31 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		return result;
 	}
 
+	private int getEc2State(final Element record) {
+		return getEc2State(record, "instanceState");
+	}
+
+	private int getEc2State(final Element record, final String tag) {
+		final Element stateElement = (Element) record.getElementsByTagName(tag).item(0);
+		return Integer.valueOf(getTagText(stateElement, "code"));
+	}
+
 	/**
-	 * Return the tag value or <code>null</code>
+	 * Return XML tag text content
 	 */
-	private String getTag(final Element record, final String name) {
+	private String getTagText(final Element element, final String tag) {
+		return element.getElementsByTagName(tag).item(0).getTextContent();
+	}
+
+	/**
+	 * Return the resource tag value or <code>null</code>
+	 */
+	private String getResourceTag(final Element record, final String name) {
 		final NodeList tags = ((Element) record.getElementsByTagName("tagSet").item(0)).getElementsByTagName("item");
 		for (int index = 0; index < tags.getLength(); index++) {
 			final Element tag = (Element) tags.item(index);
-			if (tag.getElementsByTagName("key").item(0).getTextContent().equalsIgnoreCase(name)) {
-				return tag.getElementsByTagName("value").item(0).getTextContent();
+			if (getTagText(tag, "key").equalsIgnoreCase(name)) {
+				return getTagText(tag, "value");
 			}
 		}
 
@@ -286,31 +303,14 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * Return the tag "name" value or <code>null</code>
 	 */
 	private String getName(final Element record) {
-		return getTag(record, "name");
+		return getResourceTag(record, "name");
 	}
 
-	protected NodeList getNodeInstances(final String input, final String tag)
+	protected NodeList getXmlTags(final String input, final String expression)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		final XPath xPath = XPathFactory.newInstance().newXPath();
-		return (NodeList) xPath.compile(tag).evaluate(
+		return (NodeList) xPath.compile(expression).evaluate(
 				parse(IOUtils.toInputStream(ObjectUtils.defaultIfNull(input, ""), StandardCharsets.UTF_8)), XPathConstants.NODESET);
-	}
-
-	/**
-	 * Return/execute a vCloud resource. Return <code>null</code> when the
-	 * resource is not found. Authentication should be proceeded before for
-	 * authenticated query.
-	 */
-	protected String execute(final CurlProcessor processor, final String method, final String url, final String resource) {
-		// Get the resource using the preempted authentication
-		final CurlRequest request = new CurlRequest(method, StringUtils.appendIfMissing(url, "/") + StringUtils.removeStart(resource, "/"),
-				null);
-		request.setSaveResponse(true);
-
-		// Execute the requests
-		processor.process(request);
-		processor.close();
-		return request.getResponse();
 	}
 
 	@Override
@@ -338,13 +338,31 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	@Override
-	public void execute(final int subscription, final VmOperation operation) {
-		if (Optional.ofNullable(OPERATION_TO_ACTION.get(operation))
-				.map(a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
-				.orElse(null) == null) {
+	public void execute(final int subscription, final VmOperation operation) throws Exception {
+		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(operation))
+				.map(a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID))).orElse(null);
+		if (!logTransitionState(response)) {
 			// The result is not correct
 			throw new BusinessException("vm-operation-execute");
 		}
+	}
+
+	/**
+	 * Log the instance state transition and indicates the transition was a
+	 * success.
+	 * 
+	 * @param response
+	 *            the EC2 response markup.
+	 * @return <code>true</code> when the transition succeed.
+	 */
+	private boolean logTransitionState(final String response) throws Exception {
+		final NodeList items = getXmlTags(ObjectUtils.defaultIfNull(response, "<a></a>"),
+				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
+		return IntStream.range(0, items.getLength())
+				.mapToObj(items::item).map(n -> (Element) n).peek(e -> log.info("Instance {} goes from {} to {} state",
+						getTagText(e, "instanceId"), getEc2State(e, "previousState"), getEc2State(e, "currentState")))
+				.findFirst().isPresent();
+
 	}
 
 	private String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
