@@ -215,7 +215,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		execute(VmOperation.RESET, "Action=RebootInstances&InstanceId.1=i-12345678");
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test(expected = BusinessException.class)
 	public void executeUnamanagedAction() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
@@ -226,7 +225,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		resource.execute(subscription, VmOperation.SUSPEND);
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test(expected = BusinessException.class)
 	public void executeFailed() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
@@ -268,7 +266,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test(expected = ValidationJsonException.class)
 	public void checkSubscriptionStatusDown() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
@@ -308,7 +305,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 						.execute(subscription, operation);
 	}
 
-	@SuppressWarnings("unchecked")
 	private VmAwsPluginResource mockAws(final String host, final String body, final int status, final String response) {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
