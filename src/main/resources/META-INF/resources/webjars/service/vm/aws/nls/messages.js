@@ -6,7 +6,6 @@ define({
 		'service:vm:aws:id': 'Instance Id',
 		'service:vm:aws:user' : 'User',
 		'service:vm:aws:password' : 'Password',
-		'service:vm:aws:id' : 'Instance Identifier',
 		'service:vm:aws:vpc' : 'VPC',
 		'service:vm:aws:resources' : 'Resources',
 		'error' : {

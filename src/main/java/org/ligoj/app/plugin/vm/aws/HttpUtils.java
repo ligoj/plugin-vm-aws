@@ -30,7 +30,7 @@ public class HttpUtils {
 				wr.close();
 			}
 		} catch (Exception e) {
-			throw new RuntimeException("Request failed. " + e.getMessage(), e);
+			throw new IllegalStateException("Request failed. " + e.getMessage(), e);
 		}
 		return executeHttpRequest(connection);
 	}
@@ -55,7 +55,7 @@ public class HttpUtils {
 			rd.close();
 			return response.toString();
 		} catch (Exception e) {
-			throw new RuntimeException("Request failed. " + e.getMessage(), e);
+			throw new IllegalStateException("Request failed. " + e.getMessage(), e);
 		} finally {
 			if (connection != null) {
 				connection.disconnect();
@@ -82,7 +82,7 @@ public class HttpUtils {
 			connection.setDoOutput(true);
 			return connection;
 		} catch (Exception e) {
-			throw new RuntimeException("Cannot create connection. " + e.getMessage(), e);
+			throw new IllegalStateException("Cannot create connection. " + e.getMessage(), e);
 		}
 	}
 
@@ -91,7 +91,7 @@ public class HttpUtils {
 		try {
 			encoded = URLEncoder.encode(url, "UTF-8");
 		} catch (UnsupportedEncodingException e) {
-			throw new RuntimeException("UTF-8 encoding is not supported.", e);
+			throw new IllegalStateException("UTF-8 encoding is not supported.", e);
 		}
 		if (keepPathSlash) {
 			encoded = encoded.replace("%2F", "/");

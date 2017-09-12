@@ -358,7 +358,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Configuration
 	public static class MockConfiguration {
 		@Bean
-		VmAwsPluginResource vmAwsPluginResource() {
+		public VmAwsPluginResource vmAwsPluginResource() {
 			return new VmAwsPluginResource() {
 				@Override
 				public boolean validateAccess(final Map<String, String> parameters) throws Exception {
