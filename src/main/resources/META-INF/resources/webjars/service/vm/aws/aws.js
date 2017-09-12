@@ -28,7 +28,7 @@ define(function () {
 					'description', vm.description
 				],
 				[
-					'service:vm:aws:resources', current.$super('icon')('sliders') + formatManager.formatSize(vm.memoryMB) + ', ' + vm.numberOfCpus + ' CPU'
+					'service:vm:aws:resources', current.$super('icon')('sliders') + vm.numberOfCpus + ' CPU, ' + formatManager.formatSize((vm.memoryMB || 0) * 1024 * 1024)
 				],
 				[
 					'service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.containerName
