@@ -1,4 +1,4 @@
-# :link: Ligoj AWS EC2 plugin [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.ligoj.plugin/plugin-vm-aws/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.ligoj.plugin/plugin-vm-aws)
+# :link: Ligoj AWS EC2 plugin [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.ligoj.plugin/plugin-vm-aws/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.ligoj.plugin/plugin-vm-aws) [![Download](https://api.bintray.com/packages/ligoj/maven-repo/plugin-vm-aws/images/download.svg) ](https://bintray.com/ligoj/maven-repo/plugin-vm-aws/_latestVersion)
 
 [![Build Status](https://travis-ci.org/ligoj/plugin-vm-aws.svg?branch=master)](https://travis-ci.org/ligoj/plugin-vm-aws)
 [![Build Status](https://circleci.com/gh/ligoj/plugin-vm-aws.svg?style=svg)](https://circleci.com/gh/ligoj/plugin-vm-aws)
