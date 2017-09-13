@@ -4,6 +4,7 @@ define({
 	'service:vm:aws:account': 'Compte',
 	'service:vm:aws:id' : 'Identifiant d\'instance',
 	'service:vm:aws:resources' : 'Ressources',
+	'service:vm:aws:console': 'Console AWS',
 	'error' : {
 		'aws-instance-id' : 'Instance invalide',
 		'aws-login' : 'Authentication échouée',

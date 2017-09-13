@@ -8,6 +8,7 @@ define({
 		'service:vm:aws:password' : 'Password',
 		'service:vm:aws:vpc' : 'VPC',
 		'service:vm:aws:resources' : 'Resources',
+		'service:vm:aws:console': 'AWS Console',
 		'error' : {
 			'aws-instance-id' : 'Invalid instance-id',
 			'aws-login' : 'Authentication failed',

@@ -8,6 +8,18 @@ define(function () {
 			return current.$super('renderKey')(subscription, 'service:vm:aws:id');
 		},
 
+		/**
+		 * Render AWS console.
+		 */
+		renderFeatures: function (subscription) {
+			var result = '';
+			if (subscription.parameters && subscription.parameters['service:vm:aws:account']) {
+				// Add console login page
+				result += current.$super('renderServicelink')('home', 'https://'+ subscription.parameters['service:vm:aws:account'] + '.signin.aws.amazon.com/console', 'service:vm:aws:console', null, ' target="_blank"');
+			}
+			return result;
+		},
+
 		configureSubscriptionParameters: function (configuration) {
 			current.$super('registerXServiceSelect2')(configuration, 'service:vm:aws:id', 'service/vm/aws/');
 		},
