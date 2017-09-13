@@ -35,6 +35,7 @@ import org.ligoj.app.plugin.vm.VmResource;
 import org.ligoj.app.plugin.vm.VmServicePlugin;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
+import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmStatus;
@@ -162,6 +163,9 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 
 	@Autowired
 	private CsvForBean csvForBean;
+
+	@Autowired
+	private VmScheduleRepository vmScheduleRepository;
 
 	/**
 	 * Well known instance types with details and load on initialization.
@@ -331,9 +335,10 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	@Override
-	public SubscriptionStatusWithData checkSubscriptionStatus(final String node, final Map<String, String> parameters) throws Exception {
+	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node, final Map<String, String> parameters) throws Exception { // NOSONAR
 		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
 		status.put("vm", validateVm(parameters));
+		status.put("schedules", vmScheduleRepository.countBySubscription(subscription));
 		return status;
 	}
 

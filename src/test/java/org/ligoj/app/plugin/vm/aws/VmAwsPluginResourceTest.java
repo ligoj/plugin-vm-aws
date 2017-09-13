@@ -29,6 +29,7 @@ import org.ligoj.app.model.Subscription;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
 import org.ligoj.app.plugin.vm.model.VmOperation;
+import org.ligoj.app.plugin.vm.model.VmSchedule;
 import org.ligoj.app.plugin.vm.model.VmStatus;
 import org.ligoj.app.resource.node.ParameterValueResource;
 import org.ligoj.app.resource.plugin.CurlRequest;
@@ -75,7 +76,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	public void prepareData() throws IOException {
 		// Only with Spring context
 		persistSystemEntities();
-		persistEntities("csv", new Class[] { Node.class, Parameter.class, Project.class, Subscription.class, ParameterValue.class },
+		persistEntities("csv",
+				new Class[] { Node.class, Parameter.class, Project.class, Subscription.class, ParameterValue.class, VmSchedule.class },
 				StandardCharsets.UTF_8.name());
 		this.subscription = getSubscription("gStack");
 
@@ -129,6 +131,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 				subscriptionResource.getParametersNoCheck(subscription));
 		Assert.assertTrue(nodeStatusWithData.getStatus().isUp());
 		checkVm((Vm) nodeStatusWithData.getData().get("vm"));
+		Assert.assertEquals(1, ((Integer) nodeStatusWithData.getData().get("schedules")).intValue());
 	}
 
 	@Test
