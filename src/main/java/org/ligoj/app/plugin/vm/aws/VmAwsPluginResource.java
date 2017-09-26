@@ -35,8 +35,8 @@ import org.ligoj.app.plugin.vm.VmResource;
 import org.ligoj.app.plugin.vm.VmServicePlugin;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
-import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader;
+import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmStatus;
 import org.ligoj.app.resource.plugin.AbstractXmlApiToolPluginResource;
@@ -174,14 +174,8 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 */
 	private Map<String, InstanceType> instanceTypes;
 
-	/**
-	 * Validate the VM configuration.
-	 *
-	 * @param parameters
-	 *            the space parameters.
-	 * @return Virtual Machine description.
-	 */
-	protected Vm validateVm(final Map<String, String> parameters) throws Exception {
+	@Override
+	public AwsVm getVmDetails(final Map<String, String> parameters) throws Exception {
 		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
@@ -191,7 +185,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 
 	@Override
 	public void link(final int subscription) throws Exception {
-		validateVm(subscriptionResource.getParameters(subscription));
+		getVmDetails(subscriptionResource.getParameters(subscription));
 	}
 
 	/**
@@ -207,7 +201,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	@GET
 	@Path("{node:[a-z].*}/{criteria}")
 	@Consumes(MediaType.APPLICATION_JSON)
-	public List<Vm> findAllByNameOrId(@PathParam("node") final String node, @PathParam("criteria") final String criteria)
+	public List<AwsVm> findAllByNameOrId(@PathParam("node") final String node, @PathParam("criteria") final String criteria)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		// Check the node exists
 		if (nodeRepository.findOneVisible(node, securityHelper.getLogin()) == null) {
@@ -231,7 +225,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 *            "&Filter.1.Name=instance-id&Filter.1.Value.1=my_insance_id"
 	 * @return The matching instances.
 	 */
-	private List<Vm> getDescribeInstances(final Map<String, String> parameters, final String filter)
+	private List<AwsVm> getDescribeInstances(final Map<String, String> parameters, final String filter)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		String query = "Action=DescribeInstances";
 		if (StringUtils.isNotEmpty(filter)) {
@@ -245,28 +239,28 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	/**
 	 * Build described beans from a XML result.
 	 */
-	private List<Vm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
+	private List<AwsVm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
 		final NodeList items = getXmlTags(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toVm((Element) n)).collect(Collectors.toList());
 	}
 
 	/**
-	 * Build a described {@link Vm} bean from a XML VMRecord entry.
+	 * Build a described {@link AwsVm} bean from a XML VMRecord entry.
 	 */
-	private Vm toVm(final Element record) {
-		final Vm result = new Vm();
+	private AwsVm toVm(final Element record) {
+		final AwsVm result = new AwsVm();
 		result.setId(getTagText(record, "instanceId"));
 		result.setName(Objects.toString(getName(record), result.getId()));
 		result.setDescription(getResourceTag(record, "description"));
 		final int state = getEc2State(record);
 		result.setStatus(CODE_TO_STATUS.get(state));
 		result.setBusy(Arrays.binarySearch(BUSY_CODES, state) >= 0);
-		result.setContainerName(getTagText(record, "vpcId"));
+		result.setVpc(getTagText(record, "vpcId"));
 
 		final InstanceType type = instanceTypes.get(getTagText(record, "instanceType"));
 		// Instance type details
-		result.setMemoryMB(Optional.ofNullable(type).map(InstanceType::getRam).map(m -> (int) (m * 1024d)).orElse(0));
-		result.setNumberOfCpus(Optional.ofNullable(type).map(InstanceType::getCpu).orElse(0));
+		result.setRam(Optional.ofNullable(type).map(InstanceType::getRam).map(m -> (int) (m * 1024d)).orElse(0));
+		result.setCpu(Optional.ofNullable(type).map(InstanceType::getCpu).orElse(0));
 		result.setDeployed(state != STATE_TERMINATED);
 		return result;
 	}
@@ -330,14 +324,14 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * @return <code>true</code> if AWS connection is up
 	 */
 	@Override
-	public boolean checkStatus(final String node, final Map<String, String> parameters) throws Exception {
+	public boolean checkStatus(final Map<String, String> parameters) throws Exception {
 		return validateAccess(parameters);
 	}
 
 	@Override
 	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node, final Map<String, String> parameters) throws Exception { // NOSONAR
 		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
-		status.put("vm", validateVm(parameters));
+		status.put("vm", getVmDetails(parameters));
 		status.put("schedules", vmScheduleRepository.countBySubscription(subscription));
 		return status;
 	}

@@ -37,13 +37,16 @@ define(function () {
 					'name', vm.name
 				],
 				[
-					'description', vm.description
+					'service:vm:os', vm.os
 				],
 				[
-					'service:vm:aws:resources', current.$super('icon')('sliders') + vm.numberOfCpus + ' CPU, ' + formatManager.formatSize((vm.memoryMB || 0) * 1024 * 1024)
+					'service:vm:resources', current.$super('icon')('sliders') + vm.cpu + ' CPU, ' + formatManager.formatSize((vm.ram || 0) * 1024 * 1024)
 				],
 				[
-					'service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.containerName
+					'service:vm:aws:account', current.$super('icon')('server', 'service:vm:aws:account') + subscription.parameters['service:vm:aws:account']
+				],
+				[
+					'service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.vpc
 				]
 			], 1);
 		}

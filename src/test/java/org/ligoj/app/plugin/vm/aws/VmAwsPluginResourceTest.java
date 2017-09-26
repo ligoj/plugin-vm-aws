@@ -26,6 +26,7 @@ import org.ligoj.app.model.Parameter;
 import org.ligoj.app.model.ParameterValue;
 import org.ligoj.app.model.Project;
 import org.ligoj.app.model.Subscription;
+import org.ligoj.app.plugin.vm.Vm;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
 import org.ligoj.app.plugin.vm.model.VmOperation;
@@ -107,7 +108,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void validateVmNotFound() throws Exception {
+	public void getVmDetailsNotFound() throws Exception {
 		thrown.expect(ValidationJsonException.class);
 		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "aws-instance-id"));
 
@@ -115,13 +116,13 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
 		mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
-						.validateVm(parameters);
+						.getVmDetails(parameters);
 	}
 
 	@Test
-	public void validateVm() throws Exception {
+	public void getVmDetails() throws Exception {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
-		final Vm vm = mockAwsVm().validateVm(parameters);
+		final AwsVm vm = mockAwsVm().getVmDetails(parameters);
 		checkVm(vm);
 	}
 
@@ -130,7 +131,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final SubscriptionStatusWithData nodeStatusWithData = mockAwsVm().checkSubscriptionStatus(subscription, null,
 				subscriptionResource.getParametersNoCheck(subscription));
 		Assert.assertTrue(nodeStatusWithData.getStatus().isUp());
-		checkVm((Vm) nodeStatusWithData.getData().get("vm"));
+		checkVm((AwsVm) nodeStatusWithData.getData().get("vm"));
 		Assert.assertEquals(1, ((Integer) nodeStatusWithData.getData().get("schedules")).intValue());
 	}
 
@@ -143,13 +144,13 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdNoVisible() throws Exception {
-		final List<Vm> projects = resource.findAllByNameOrId("service:vm:aws:any", "INSTANCE_ ");
+		final List<AwsVm> projects = resource.findAllByNameOrId("service:vm:aws:any", "INSTANCE_ ");
 		Assert.assertEquals(0, projects.size());
 	}
 
 	@Test
 	public void findAllByNameOrId() throws Exception {
-		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
 		Assert.assertEquals(6, projects.size());
@@ -158,7 +159,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdNoName() throws Exception {
-		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000006");
 		Assert.assertEquals(1, projects.size());
@@ -169,7 +170,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdById() throws Exception {
-		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000005");
 		Assert.assertEquals(1, projects.size());
@@ -180,7 +181,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdEmpty() throws Exception {
-		final List<Vm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
 		Assert.assertEquals(0, projects.size());
@@ -325,19 +326,18 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		return resource;
 	}
 
-	private void checkVm(final Vm item) {
+	private void checkVm(final AwsVm item) {
 		Assert.assertEquals("i-12345678", item.getId());
 		Assert.assertEquals("INSTANCE_ON", item.getName());
 		Assert.assertEquals("Custom description", item.getDescription());
-		Assert.assertNull(item.getStorageProfileName());
 		Assert.assertEquals(VmStatus.POWERED_ON, item.getStatus());
 		Assert.assertFalse(item.isBusy());
-		Assert.assertEquals("vpc-11112222", item.getContainerName());
+		Assert.assertEquals("vpc-11112222", item.getVpc());
 		Assert.assertTrue(item.isDeployed());
 
 		// From the instance type details
-		Assert.assertEquals(1024, item.getMemoryMB());
-		Assert.assertEquals(1, item.getNumberOfCpus());
+		Assert.assertEquals(1024, item.getRam());
+		Assert.assertEquals(1, item.getCpu());
 	}
 
 	private boolean validateAccess(int status) throws Exception {
