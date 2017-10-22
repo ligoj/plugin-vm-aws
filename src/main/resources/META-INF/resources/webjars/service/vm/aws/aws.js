@@ -30,25 +30,24 @@ define(function () {
 		renderDetailsKey: function (subscription) {
 			var vm = subscription.data.vm;
 			return current.$super('generateCarousel')(subscription, [
-				[
-					'service:vm:aws:id', current.renderKey(subscription)
-				],
-				[
-					'name', vm.name
-				],
-				[
-					'service:vm:os', vm.os
-				],
-				[
-					'service:vm:resources', current.$super('icon')('sliders') + vm.cpu + ' CPU, ' + formatManager.formatSize((vm.ram || 0) * 1024 * 1024)
-				],
-				[
-					'service:vm:aws:account', current.$super('icon')('server', 'service:vm:aws:account') + subscription.parameters['service:vm:aws:account']
-				],
-				[
-					'service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.vpc
-				]
+				['service:vm:aws:id', current.renderKey(subscription)],
+				['name', vm.name],
+				['service:vm:os', vm.os],
+				['service:vm:resources', current.$super('icon')('sliders') + vm.cpu + ' CPU, ' + formatManager.formatSize((vm.ram || 0) * 1024 * 1024)],
+				vm.networks ? ['service:vm:network', current.renderNetwork(vm.networks) ] : null,
+				['service:vm:aws:account', current.$super('icon')('server', 'service:vm:aws:account') + subscription.parameters['service:vm:aws:account']],
+				['service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.vpc]
 			], 1);
+		},
+
+		renderNetwork: function (networks) {
+			var result = [];
+			var networkTypeToIcon = {'public': 'globe', 'private': 'lock'};
+			networks.forEach(function(network) {
+				result.push('<i class="fa fa-' + (networkTypeToIcon[network.type] || 'slash') + '"></i> ' + network.ip + (network.dns ? ' [' + network.dns + ']' : ''));
+			});
+			
+			return result.join(', ');
 		}
 	};
 	return current;

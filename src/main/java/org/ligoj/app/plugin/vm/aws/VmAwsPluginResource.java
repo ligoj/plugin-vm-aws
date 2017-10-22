@@ -2,7 +2,9 @@ package org.ligoj.app.plugin.vm.aws;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -179,8 +181,8 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
-		return this.getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId).stream().findFirst()
-				.orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
+		return this.getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId, this::toVmDetails)
+				.stream().findFirst().orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
 	}
 
 	@Override
@@ -209,7 +211,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		}
 
 		// Get all VMs and then filter by its name or id
-		return this.getDescribeInstances(pvResource.getNodeParameters(node), "").stream().filter(
+		return this.getDescribeInstances(pvResource.getNodeParameters(node), "", this::toVm).stream().filter(
 				vm -> StringUtils.containsIgnoreCase(vm.getName(), criteria) || StringUtils.containsIgnoreCase(vm.getId(), criteria))
 				.sorted().collect(Collectors.toList());
 	}
@@ -223,9 +225,12 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * @param filter
 	 *            Optional instance identifier to find. For sample :
 	 *            "&Filter.1.Name=instance-id&Filter.1.Value.1=my_insance_id"
+	 * @param parser
+	 *            The mapper from {@link Element} to {@link AwsVm}.
 	 * @return The matching instances.
 	 */
-	private List<AwsVm> getDescribeInstances(final Map<String, String> parameters, final String filter)
+	private List<AwsVm> getDescribeInstances(final Map<String, String> parameters, final String filter,
+			final Function<Element, AwsVm> parser)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		String query = "Action=DescribeInstances";
 		if (StringUtils.isNotEmpty(filter)) {
@@ -233,15 +238,16 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		}
 		final String response = StringUtils.defaultIfEmpty(processEC2(parameters, query),
 				"<DescribeInstancesResponse><reservationSet><item><instancesSet></instancesSet></item></reservationSet></DescribeInstancesResponse>");
-		return toVms(response);
+		return toVms(response, parser);
 	}
 
 	/**
 	 * Build described beans from a XML result.
 	 */
-	private List<AwsVm> toVms(final String vmAsXml) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
+	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser)
+			throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
 		final NodeList items = getXmlTags(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
-		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toVm((Element) n)).collect(Collectors.toList());
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> parser.apply((Element) n)).collect(Collectors.toList());
 	}
 
 	/**
@@ -265,6 +271,41 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		return result;
 	}
 
+	/**
+	 * Build a described {@link AwsVm} bean from a XML VMRecord entry.
+	 */
+	private AwsVm toVmDetails(final Element record) {
+		final AwsVm result = toVm(record);
+
+		// Network details
+		result.setNetworks(new ArrayList<VmNetwork>());
+
+		// Get network data for each network references
+		addNetworkDetails(record, result.getNetworks());
+		return result;
+	}
+
+	/**
+	 * Fill the given VM networks with its network details.
+	 */
+	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks) {
+		// Private IP (optional)
+		addNetworkDetails(networkNode, networks, "private", "privateIpAddress", "privateDnsName");
+
+		// Public IP (optional)
+		addNetworkDetails(networkNode, networks, "public", "ipAddress", "dnsName");
+	}
+
+	/**
+	 * Fill the given VM networks with a specific network details.
+	 */
+	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks, final String type, final String ipAttr,
+			final String dnsAttr) {
+		// When IP is available, add the corresponding network
+		Optional.ofNullable(getTagText(networkNode, ipAttr))
+				.ifPresent(i -> networks.add(new VmNetwork(type, i, getTagText(networkNode, dnsAttr))));
+	}
+
 	private int getEc2State(final Element record) {
 		return getEc2State(record, "instanceState");
 	}
@@ -278,7 +319,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * Return XML tag text content
 	 */
 	private String getTagText(final Element element, final String tag) {
-		return element.getElementsByTagName(tag).item(0).getTextContent();
+		return Optional.ofNullable(element.getElementsByTagName(tag).item(0)).map(n -> n.getTextContent()).orElse(null);
 	}
 
 	/**
@@ -329,7 +370,8 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	@Override
-	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node, final Map<String, String> parameters) throws Exception { // NOSONAR
+	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node,
+			final Map<String, String> parameters) throws Exception { // NOSONAR
 		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
 		status.put("vm", getVmDetails(parameters));
 		status.put("schedules", vmScheduleRepository.countBySubscription(subscription));
@@ -357,9 +399,9 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	private boolean logTransitionState(final String response) throws Exception {
 		final NodeList items = getXmlTags(ObjectUtils.defaultIfNull(response, "<a></a>"),
 				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
-		return IntStream.range(0, items.getLength())
-				.mapToObj(items::item).map(n -> (Element) n).peek(e -> log.info("Instance {} goes from {} to {} state",
-						getTagText(e, "instanceId"), getEc2State(e, "previousState"), getEc2State(e, "currentState")))
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> (Element) n)
+				.peek(e -> log.info("Instance {} goes from {} to {} state", getTagText(e, "instanceId"), getEc2State(e, "previousState"),
+						getEc2State(e, "currentState")))
 				.findFirst().isPresent();
 
 	}

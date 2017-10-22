@@ -85,7 +85,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		// Invalidate vCloud cache
 		CacheManager.getInstance().getCache("curl-tokens").removeAll();
-		
+
 		resource = new VmAwsPluginResource() {
 			@Override
 			public boolean validateAccess(final Map<String, String> parameters) throws Exception {
@@ -130,7 +130,23 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	public void getVmDetails() throws Exception {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
 		final AwsVm vm = mockAwsVm().getVmDetails(parameters);
+		checkVmDetails(vm);
+	}
+
+	@Test
+	public void getVmDetailsNoPublic() throws Exception {
+		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
+		final AwsVm vm = mockAws("ec2.eu-west-1.amazonaws.com",
+				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678-no-public.xml").getInputStream(), "UTF-8"))
+						.getVmDetails(parameters);
 		checkVm(vm);
+
+		// Check network
+		Assert.assertEquals(1, vm.getNetworks().size());
+		Assert.assertEquals("10.0.0.236", vm.getNetworks().get(0).getIp());
+		Assert.assertEquals("private", vm.getNetworks().get(0).getType());
+		Assert.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", vm.getNetworks().get(0).getDns());
 	}
 
 	@Test
@@ -345,6 +361,19 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		// From the instance type details
 		Assert.assertEquals(1024, item.getRam());
 		Assert.assertEquals(1, item.getCpu());
+	}
+
+	private void checkVmDetails(final AwsVm item) {
+		checkVm(item);
+
+		// Check network
+		Assert.assertEquals(2, item.getNetworks().size());
+		Assert.assertEquals("10.0.0.236", item.getNetworks().get(0).getIp());
+		Assert.assertEquals("private", item.getNetworks().get(0).getType());
+		Assert.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", item.getNetworks().get(0).getDns());
+		Assert.assertEquals("1.2.3.4", item.getNetworks().get(1).getIp());
+		Assert.assertEquals("public", item.getNetworks().get(1).getType());
+		Assert.assertEquals("ec2-1.2.3.4.eu-west-1.compute.amazonaws.com", item.getNetworks().get(1).getDns());
 	}
 
 	private boolean validateAccess(int status) throws Exception {

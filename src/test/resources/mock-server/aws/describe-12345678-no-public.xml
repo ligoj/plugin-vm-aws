@@ -20,9 +20,7 @@
 						</item>
 					</tagSet>
                     <privateDnsName>ip-10-0-0-236.eu-west-1.compute.internal</privateDnsName>
-                    <dnsName>ec2-1.2.3.4.eu-west-1.compute.amazonaws.com</dnsName>
                     <privateIpAddress>10.0.0.236</privateIpAddress>
-                    <ipAddress>1.2.3.4</ipAddress>
 				</item>
 			</instancesSet>
 		</item>
