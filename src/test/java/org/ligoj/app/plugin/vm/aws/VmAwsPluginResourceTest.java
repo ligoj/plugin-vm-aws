@@ -42,8 +42,6 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
@@ -74,7 +72,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	protected int subscription;
 
 	@Before
-	public void prepareData() throws IOException {
+	public void prepareData() throws Exception {
 		// Only with Spring context
 		persistSystemEntities();
 		persistEntities("csv",
@@ -87,6 +85,15 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		// Invalidate vCloud cache
 		CacheManager.getInstance().getCache("curl-tokens").removeAll();
+		
+		resource = new VmAwsPluginResource() {
+			@Override
+			public boolean validateAccess(final Map<String, String> parameters) throws Exception {
+				return true;
+			}
+		};
+		applicationContext.getAutowireCapableBeanFactory().autowireBean(resource);
+		resource.afterPropertiesSet();
 	}
 
 	@Test
@@ -353,22 +360,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(status)));
 		httpServer.start();
 		return resource.validateAccess(pvResource.getNodeParameters("service:vm:aws:test"));
-	}
-
-	/**
-	 * Configuration class used to mock AWS calls
-	 */
-	@Configuration
-	public static class MockConfiguration {
-		@Bean
-		public VmAwsPluginResource vmAwsPluginResource() {
-			return new VmAwsPluginResource() {
-				@Override
-				public boolean validateAccess(final Map<String, String> parameters) throws Exception {
-					return true;
-				}
-			};
-		}
 	}
 
 	/**
