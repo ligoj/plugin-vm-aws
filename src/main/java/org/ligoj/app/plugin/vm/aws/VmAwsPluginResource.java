@@ -33,6 +33,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.dao.NodeRepository;
+import org.ligoj.app.plugin.vm.VmNetwork;
 import org.ligoj.app.plugin.vm.VmResource;
 import org.ligoj.app.plugin.vm.VmServicePlugin;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
