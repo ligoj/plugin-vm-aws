@@ -399,6 +399,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		Assert.assertEquals("1.2.3.4", item.getNetworks().get(1).getIp());
 		Assert.assertEquals("public", item.getNetworks().get(1).getType());
 		Assert.assertEquals("ec2-1.2.3.4.eu-west-1.compute.amazonaws.com", item.getNetworks().get(1).getDns());
+		Assert.assertEquals("eu-west-1b", item.getAz());
 	}
 
 	private boolean validateAccess(int status) throws Exception {

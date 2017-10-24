@@ -9,6 +9,11 @@
 						<code>16</code>
 					</instanceState>
 					<vpcId>vpc-11112222</vpcId>
+					<placement>
+					    <availabilityZone>eu-west-1b</availabilityZone>
+					    <groupName/>
+					    <tenancy>default</tenancy>
+					</placement>
 					<tagSet>
 						<item>
 							<key>Name</key>

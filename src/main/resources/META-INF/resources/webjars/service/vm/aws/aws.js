@@ -36,7 +36,8 @@ define(function () {
 				['service:vm:resources', current.$super('icon')('sliders') + vm.cpu + ' CPU, ' + formatManager.formatSize((vm.ram || 0) * 1024 * 1024)],
 				vm.networks ? ['service:vm:network', current.$super('renderNetwork')(vm.networks) ] : null,
 				['service:vm:aws:account', current.$super('icon')('server', 'service:vm:aws:account') + subscription.parameters['service:vm:aws:account']],
-				['service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.vpc]
+				['service:vm:aws:vpc', current.$super('icon')('server', 'service:vm:aws:vpc') + vm.vpc],
+				['service:vm:aws:az', current.$super('icon')('map-marker', 'service:vm:aws:az') + '<a href="https://aws.amazon.com/about-aws/global-infrastructure/" target="_blank">' + vm.az + '</a>' ]
 			], 1);
 		}
 	};

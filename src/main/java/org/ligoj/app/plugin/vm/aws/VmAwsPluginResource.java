@@ -264,6 +264,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		result.setStatus(CODE_TO_STATUS.get(state));
 		result.setBusy(Arrays.binarySearch(BUSY_CODES, state) >= 0);
 		result.setVpc(getTagText(record, "vpcId"));
+		result.setAz(getTagText((Element) record.getElementsByTagName("placement").item(0), "availabilityZone"));
 
 		final InstanceType type = instanceTypes.get(getTagText(record, "instanceType"));
 		// Instance type details
@@ -318,10 +319,18 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	}
 
 	/**
-	 * Return XML tag text content
+	 * Return XML tag text content.
+	 * 
+	 * @param element
+	 *            Optional element. Null is accepted.
+	 * @param tag
+	 *            The tag name.
+	 * @return The tag value when tag is found of <code>null</code>.
 	 */
 	private String getTagText(final Element element, final String tag) {
-		return Optional.ofNullable(element.getElementsByTagName(tag).item(0)).map(n -> n.getTextContent()).orElse(null);
+		return Optional.ofNullable(
+				Optional.ofNullable(element).map(e -> e.getElementsByTagName(tag).item(0)).map(n -> n.getTextContent()).orElse(null))
+				.orElse(null);
 	}
 
 	/**

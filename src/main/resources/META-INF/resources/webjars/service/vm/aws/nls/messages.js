@@ -9,6 +9,7 @@ define({
 		'service:vm:aws:vpc' : 'VPC',
 		'service:vm:aws:resources' : 'Resources',
 		'service:vm:aws:console': 'AWS Console',
+		'service:vm:aws:az': 'Availability Zone',
 		'error' : {
 			'aws-instance-id' : 'Invalid instance-id',
 			'aws-login' : 'Authentication failed',
