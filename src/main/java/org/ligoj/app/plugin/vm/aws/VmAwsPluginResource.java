@@ -113,7 +113,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	/**
 	 * EC2 state for terminated.
 	 */
-	private static final int STATE_TERMINATED = 80;
+	private static final int STATE_TERMINATED = 48;
 
 	/**
 	 * VM operation mapping.
@@ -141,8 +141,8 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	public static final Map<Integer, VmStatus> CODE_TO_STATUS = new HashMap<>();
 	static {
 		CODE_TO_STATUS.put(16, VmStatus.POWERED_ON);
-		CODE_TO_STATUS.put(48, VmStatus.POWERED_OFF);
 		CODE_TO_STATUS.put(STATE_TERMINATED, VmStatus.POWERED_OFF); // TERMINATED
+		CODE_TO_STATUS.put(80, VmStatus.POWERED_OFF);
 		CODE_TO_STATUS.put(0, VmStatus.POWERED_ON); // PENDING - BUSY
 		CODE_TO_STATUS.put(32, VmStatus.POWERED_OFF); // SHUTTING_DOWN - BUSY
 		CODE_TO_STATUS.put(64, VmStatus.POWERED_OFF); // STOPPING - BUSY
@@ -212,6 +212,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		}
 
 		// Get all VMs and then filter by its name or id
+		// Note : AWS does not support RegExp on tag
 		return this.getDescribeInstances(pvResource.getNodeParameters(node), "", this::toVm).stream().filter(
 				vm -> StringUtils.containsIgnoreCase(vm.getName(), criteria) || StringUtils.containsIgnoreCase(vm.getId(), criteria))
 				.sorted().collect(Collectors.toList());
@@ -268,7 +269,7 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 		// Instance type details
 		result.setRam(Optional.ofNullable(type).map(InstanceType::getRam).map(m -> (int) (m * 1024d)).orElse(0));
 		result.setCpu(Optional.ofNullable(type).map(InstanceType::getCpu).orElse(0));
-		result.setDeployed(state != STATE_TERMINATED);
+		result.setDeployed(result.getStatus() == VmStatus.POWERED_ON);
 		return result;
 	}
 
@@ -327,16 +328,10 @@ public class VmAwsPluginResource extends AbstractXmlApiToolPluginResource implem
 	 * Return the resource tag value or <code>null</code>
 	 */
 	private String getResourceTag(final Element record, final String name) {
-		final NodeList tags = ((Element) record.getElementsByTagName("tagSet").item(0)).getElementsByTagName("item");
-		for (int index = 0; index < tags.getLength(); index++) {
-			final Element tag = (Element) tags.item(index);
-			if (getTagText(tag, "key").equalsIgnoreCase(name)) {
-				return getTagText(tag, "value");
-			}
-		}
-
-		// No tag found
-		return null;
+		return Optional.ofNullable(record.getElementsByTagName("tagSet").item(0)).map(n -> ((Element) n).getElementsByTagName("item"))
+				.map(n -> IntStream.range(0, n.getLength()).mapToObj(n::item).map(t -> (Element) t)
+						.filter(t -> getTagText(t, "key").equalsIgnoreCase(name)).map(t -> getTagText(t, "value")).findFirst().orElse(null))
+				.orElse(null);
 	}
 
 	/**

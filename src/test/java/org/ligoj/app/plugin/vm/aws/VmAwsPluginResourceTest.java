@@ -150,6 +150,31 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
+	public void getVmDetailsTerminatedNoTag() throws Exception {
+		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
+		final AwsVm vm = mockAws("ec2.eu-west-1.amazonaws.com",
+				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345679-terminated.xml").getInputStream(), "UTF-8"))
+						.getVmDetails(parameters);
+
+		// Check terminated instance attribute
+		Assert.assertEquals("i-12345678", vm.getId());
+		Assert.assertEquals("i-12345678", vm.getName());
+		Assert.assertNull(vm.getDescription());
+		Assert.assertEquals(VmStatus.POWERED_OFF, vm.getStatus());
+		Assert.assertFalse(vm.isBusy());
+		Assert.assertNull(vm.getVpc());
+		Assert.assertFalse(vm.isDeployed());
+
+		// From the instance type details
+		Assert.assertEquals(1024, vm.getRam());
+		Assert.assertEquals(1, vm.getCpu());
+
+		// Check network
+		Assert.assertEquals(0, vm.getNetworks().size());
+	}
+
+	@Test
 	public void checkSubscriptionStatus() throws Exception {
 		final SubscriptionStatusWithData nodeStatusWithData = mockAwsVm().checkSubscriptionStatus(subscription, null,
 				subscriptionResource.getParametersNoCheck(subscription));

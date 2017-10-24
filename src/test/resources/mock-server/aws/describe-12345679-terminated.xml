@@ -1,0 +1,18 @@
+<DescribeInstancesResponse>
+	<reservationSet>
+		<item>
+			<instancesSet>
+				<item>
+					<instanceId>i-12345678</instanceId>
+					<instanceType>t2.micro</instanceType>
+                    <instanceState>
+                        <code>48</code>
+                        <name>terminated</name>
+                    </instanceState>
+                    <privateDnsName/>
+                    <dnsName/>
+				</item>
+			</instancesSet>
+		</item>
+	</reservationSet>
+</DescribeInstancesResponse>
