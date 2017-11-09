@@ -19,3 +19,7 @@ Provides the following features :
 
 Dashboard features :
 - Status of the VM, including the intermediate busy mode
+
+Note [Sheduled Lambda](http://docs.aws.amazon.com/lambda/latest/dg/with-scheduled-events.html) could be used instead on REST calls :
+- There are limits : 100/500
+- Changes management are more complex : update CRON, delete VM, add operation
