@@ -44,6 +44,23 @@ public class AWS4SignatureQueryTest {
 	public void builder() {
 		AWS4SignatureQueryBuilder builder = AWS4SignatureQuery.builder();
 		builder.toString();
+		builder = builderCommon(builder);
+		builder = builder.method("GET");
+		builder.toString();
+		builder.build();
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void builderNullMethod() {
+		AWS4SignatureQueryBuilder builder = AWS4SignatureQuery.builder();
+		builder.toString();
+		builder = builderCommon(builder);
+		builder = builder.method(null);
+		builder.toString();
+		builder.build();
+	}
+
+	private AWS4SignatureQueryBuilder builderCommon(AWS4SignatureQueryBuilder builder) {
 		builder = builder.host("localhost");
 		builder.toString();
 		builder = builder.path("/");
@@ -63,8 +80,6 @@ public class AWS4SignatureQueryTest {
 		builder.toString();
 		builder = builder.queryParameters(Collections.emptyMap());
 		builder.toString();
-		builder = builder.method("GET");
-		builder.toString();
-		builder.build();
+		return builder;
 	}
 }

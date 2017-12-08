@@ -18,8 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.google.common.collect.ImmutableMap;
 
 /**
- * @author alocquet
- *
+ * Test class of {@link AWS4SignerBase}
  */
 public class AWS4SignerBaseTest {
 
