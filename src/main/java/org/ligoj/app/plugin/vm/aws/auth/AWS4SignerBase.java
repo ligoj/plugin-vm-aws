@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.codec.digest.HmacAlgorithms;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.codec.net.URLCodec;
 import org.apache.commons.lang3.StringUtils;
@@ -25,12 +26,12 @@ public abstract class AWS4SignerBase {
 	private URLCodec urlCodec = new URLCodec();
 
 	/**
-	 * Returns the canonical collection of header names that will be included in
-	 * the signature. For AWS4, all header names must be included in the process
-	 * in sorted canonicalized order.
+	 * Returns the canonical collection of header names that will be included in the
+	 * signature. For AWS4, all header names must be included in the process in
+	 * sorted canonicalized order.
 	 */
 	protected String getCanonicalizeHeaderNames(final Map<String, String> headers) {
-		return headers.keySet().stream().sorted(String.CASE_INSENSITIVE_ORDER).map(header -> header.toLowerCase()).collect(Collectors.joining(";"));
+		return headers.keySet().stream().sorted(String.CASE_INSENSITIVE_ORDER).map(String::toLowerCase).collect(Collectors.joining(";"));
 	}
 
 	/**
@@ -58,9 +59,8 @@ public abstract class AWS4SignerBase {
 	 */
 	protected String getCanonicalRequest(final String path, final String httpMethod, final String queryParameters,
 			final String canonicalizedHeaderNames, final String canonicalizedHeaders, final String bodyHash) {
-		final String canonicalRequest = httpMethod + LF + getCanonicalizedResourcePath(path) + LF + queryParameters + LF + canonicalizedHeaders + LF
+		return httpMethod + LF + getCanonicalizedResourcePath(path) + LF + queryParameters + LF + canonicalizedHeaders + LF
 				+ canonicalizedHeaderNames + LF + bodyHash;
-		return canonicalRequest;
 	}
 
 	/**
@@ -75,12 +75,12 @@ public abstract class AWS4SignerBase {
 	}
 
 	/**
-	 * Examines the specified query string parameters and returns a
-	 * canonicalized form.
+	 * Examines the specified query string parameters and returns a canonicalized
+	 * form.
 	 * <p>
 	 * The canonicalized query string is formed by first sorting all the query
-	 * string parameters, then URI encoding both the key and value and then
-	 * joining them, in order, separating key value pairs with an '&'.
+	 * string parameters, then URI encoding both the key and value and then joining
+	 * them, in order, separating key value pairs with an '&'.
 	 *
 	 * @param parameters
 	 *            The query string parameters to be canonicalized.
@@ -113,8 +113,7 @@ public abstract class AWS4SignerBase {
 	}
 
 	/**
-	 * Hashes the string contents (assumed to be UTF-8) using the SHA-256
-	 * algorithm.
+	 * Hashes the string contents (assumed to be UTF-8) using the SHA-256 algorithm.
 	 */
 	public String hash(final String text) {
 		return Hex.encodeHexString(DigestUtils.getSha256Digest().digest(org.apache.commons.codec.binary.StringUtils.getBytesUtf8(text)));
@@ -130,6 +129,6 @@ public abstract class AWS4SignerBase {
 	 * @return signature
 	 */
 	protected byte[] sign(final String stringData, final byte[] key) {
-		return HmacUtils.hmacSha256(key, org.apache.commons.codec.binary.StringUtils.getBytesUtf8(stringData));
+		return new HmacUtils(HmacAlgorithms.HMAC_SHA_256, key).hmac(stringData);
 	}
 }

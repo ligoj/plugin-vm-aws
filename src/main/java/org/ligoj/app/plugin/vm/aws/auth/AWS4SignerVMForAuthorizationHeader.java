@@ -19,9 +19,9 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 	/**
 	 * format strings for the date/time and date stamps required during signing
 	 **/
-	public static final String ISO8601BasicFormat = "yyyyMMdd'T'HHmmss'Z'";
-	public static final String DateStringFormat = "yyyyMMdd";
-	
+	public static final String ISO8601_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
+	public static final String DATE_FORMAT = "yyyyMMdd";
+
 	/**
 	 * clock used to date query
 	 */
@@ -33,18 +33,18 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 	 * 
 	 * @param query
 	 *            the query
-	 * @return The computed authorization string for the request. This value
-	 *         needs to be set as the header 'Authorization' on the subsequent
-	 *         HTTP request.
+	 * @return The computed authorization string for the request. This value needs
+	 *         to be set as the header 'Authorization' on the subsequent HTTP
+	 *         request.
 	 */
 	public String computeSignature(final AWS4SignatureQuery query) {
 		// first get the date and time for the subsequent request, and convert
 		// to ISO 8601 format for use in signature generation
 		final ZonedDateTime now = ZonedDateTime.now(clock);
-		
-		final String dateTimeStamp = DateTimeFormatter.ofPattern(ISO8601BasicFormat).format(now);
+
+		final String dateTimeStamp = DateTimeFormatter.ofPattern(ISO8601_FORMAT).format(now);
 		final String bodyHash;
-		if(query.getBody()==null){
+		if (query.getBody() == null) {
 			bodyHash = EMPTY_BODY_SHA256;
 		} else {
 			bodyHash = hash(query.getBody());
@@ -67,7 +67,7 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 				canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
 
 		// construct the string to be signed
-		final String dateStamp = DateTimeFormatter.ofPattern(DateStringFormat).format(now);
+		final String dateStamp = DateTimeFormatter.ofPattern(DATE_FORMAT).format(now);
 		final String scope = dateStamp + "/" + query.getRegion() + "/" + query.getService() + "/" + TERMINATOR;
 		final String stringToSign = getStringToSign(dateTimeStamp, scope, canonicalRequest);
 
@@ -83,9 +83,7 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 		final String signedHeadersAuthorizationHeader = "SignedHeaders=" + canonicalizedHeaderNames;
 		final String signatureAuthorizationHeader = "Signature=" + Hex.encodeHexString(signature);
 
-		final String authorizationHeader = SCHEME + "-" + ALGORITHM + " " + credentialsAuthorizationHeader + ", " + signedHeadersAuthorizationHeader
-				+ ", " + signatureAuthorizationHeader;
-
-		return authorizationHeader;
+		return SCHEME + "-" + ALGORITHM + " " + credentialsAuthorizationHeader + ", " + signedHeadersAuthorizationHeader + ", "
+				+ signatureAuthorizationHeader;
 	}
 }
