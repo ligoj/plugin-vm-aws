@@ -13,7 +13,7 @@ import lombok.Setter;
 public class AwsVm extends Vm {
 
 	private String vpc;
-	
+
 	/**
 	 * Availability Zone : includes region. Sample : eu-west-1b
 	 */
