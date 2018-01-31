@@ -12,7 +12,6 @@ import java.util.stream.IntStream;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathException;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
@@ -275,7 +274,7 @@ public class VmAwsSnapshotResource {
 	 * @return The create AMI details.
 	 */
 	public void create(final int subscription, final Map<String, String> parameters, final boolean stop)
-			throws XPathException, SAXException, IOException, ParserConfigurationException, InterruptedException {
+			throws SAXException, IOException, ParserConfigurationException {
 		// Create the AMI
 		snapshotResource.nextStep(subscription, s -> {
 			s.setPhase("creating-ami");

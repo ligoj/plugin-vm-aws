@@ -14,10 +14,10 @@ import javax.transaction.Transactional;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpStatus;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.ligoj.app.AbstractServerTest;
 import org.ligoj.app.MatcherUtil;
 import org.ligoj.app.api.SubscriptionStatusWithData;
@@ -45,14 +45,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import net.sf.ehcache.CacheManager;
 
 /**
  * Test class of {@link VmAwsPluginResource}
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = "classpath:/META-INF/spring/application-context-test.xml")
 @Rollback
 @Transactional
@@ -71,7 +71,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	protected int subscription;
 
-	@Before
+	@BeforeEach
 	public void prepareData() throws Exception {
 		// Only with Spring context
 		persistSystemEntities();
@@ -106,24 +106,25 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		mockAwsVm().link(this.subscription);
 	}
 
-	@Test(expected = ValidationJsonException.class)
+	@Test
 	public void linkFailed() throws Exception {
-		mockAws("ec2.eu-west-1.amazonaws.com",
-				"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678", HttpStatus.SC_OK,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
-						.link(this.subscription);
+		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
+			mockAws("ec2.eu-west-1.amazonaws.com",
+					"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678", HttpStatus.SC_OK,
+					IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
+							.link(this.subscription);
+		}), "yyyyy", "unknown-id");
 	}
 
 	@Test
 	public void getVmDetailsNotFound() throws Exception {
-		thrown.expect(ValidationJsonException.class);
-		thrown.expect(MatcherUtil.validationMatcher(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "aws-instance-id"));
-
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
-		mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0&Version=2016-11-15", HttpStatus.SC_OK,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
-						.getVmDetails(parameters);
+		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
+			mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0&Version=2016-11-15", HttpStatus.SC_OK,
+					IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
+							.getVmDetails(parameters);
+		}), VmAwsPluginResource.PARAMETER_INSTANCE_ID, "aws-instance-id");
 	}
 
 	@Test
@@ -143,10 +144,10 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		checkVm(vm);
 
 		// Check network
-		Assert.assertEquals(1, vm.getNetworks().size());
-		Assert.assertEquals("10.0.0.236", vm.getNetworks().get(0).getIp());
-		Assert.assertEquals("private", vm.getNetworks().get(0).getType());
-		Assert.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", vm.getNetworks().get(0).getDns());
+		Assertions.assertEquals(1, vm.getNetworks().size());
+		Assertions.assertEquals("10.0.0.236", vm.getNetworks().get(0).getIp());
+		Assertions.assertEquals("private", vm.getNetworks().get(0).getType());
+		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", vm.getNetworks().get(0).getDns());
 	}
 
 	@Test
@@ -158,34 +159,34 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 						.getVmDetails(parameters);
 
 		// Check terminated instance attribute
-		Assert.assertEquals("i-12345678", vm.getId());
-		Assert.assertEquals("i-12345678", vm.getName());
-		Assert.assertNull(vm.getDescription());
-		Assert.assertEquals(VmStatus.POWERED_OFF, vm.getStatus());
-		Assert.assertFalse(vm.isBusy());
-		Assert.assertNull(vm.getVpc());
-		Assert.assertFalse(vm.isDeployed());
+		Assertions.assertEquals("i-12345678", vm.getId());
+		Assertions.assertEquals("i-12345678", vm.getName());
+		Assertions.assertNull(vm.getDescription());
+		Assertions.assertEquals(VmStatus.POWERED_OFF, vm.getStatus());
+		Assertions.assertFalse(vm.isBusy());
+		Assertions.assertNull(vm.getVpc());
+		Assertions.assertFalse(vm.isDeployed());
 
 		// From the instance type details
-		Assert.assertEquals(1024, vm.getRam());
-		Assert.assertEquals(1, vm.getCpu());
+		Assertions.assertEquals(1024, vm.getRam());
+		Assertions.assertEquals(1, vm.getCpu());
 
 		// Check network
-		Assert.assertEquals(0, vm.getNetworks().size());
+		Assertions.assertEquals(0, vm.getNetworks().size());
 	}
 
 	@Test
 	public void checkSubscriptionStatus() throws Exception {
 		final SubscriptionStatusWithData nodeStatusWithData = mockAwsVm().checkSubscriptionStatus(subscription, null,
 				subscriptionResource.getParametersNoCheck(subscription));
-		Assert.assertTrue(nodeStatusWithData.getStatus().isUp());
+		Assertions.assertTrue(nodeStatusWithData.getStatus().isUp());
 		checkVm((AwsVm) nodeStatusWithData.getData().get("vm"));
-		Assert.assertEquals(1, ((Integer) nodeStatusWithData.getData().get("schedules")).intValue());
+		Assertions.assertEquals(1, ((Integer) nodeStatusWithData.getData().get("schedules")).intValue());
 	}
 
 	@Test
 	public void checkStatus() throws Exception {
-		Assert.assertTrue(mockAws("s3-eu-west-1.amazonaws.com", null, HttpStatus.SC_OK,
+		Assertions.assertTrue(mockAws("s3-eu-west-1.amazonaws.com", null, HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"))
 						.checkStatus("service:vm:aws:test", pvResource.getNodeParameters("service:vm:aws:test")));
 	}
@@ -193,7 +194,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void findAllByNameOrIdNoVisible() throws Exception {
 		final List<AwsVm> projects = resource.findAllByNameOrId("service:vm:aws:any", "INSTANCE_ ");
-		Assert.assertEquals(0, projects.size());
+		Assertions.assertEquals(0, projects.size());
 	}
 
 	@Test
@@ -201,7 +202,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
-		Assert.assertEquals(6, projects.size());
+		Assertions.assertEquals(6, projects.size());
 		checkVm(projects.get(0));
 	}
 
@@ -210,10 +211,10 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000006");
-		Assert.assertEquals(1, projects.size());
+		Assertions.assertEquals(1, projects.size());
 		final Vm item = projects.get(0);
-		Assert.assertEquals("i-00000006", item.getId());
-		Assert.assertEquals("i-00000006", item.getName());
+		Assertions.assertEquals("i-00000006", item.getId());
+		Assertions.assertEquals("i-00000006", item.getName());
 	}
 
 	@Test
@@ -221,10 +222,10 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000005");
-		Assert.assertEquals(1, projects.size());
+		Assertions.assertEquals(1, projects.size());
 		final Vm item = projects.get(0);
-		Assert.assertEquals("i-00000005", item.getId());
-		Assert.assertEquals("INSTANCE_STOPPING", item.getName());
+		Assertions.assertEquals("i-00000005", item.getId());
+		Assertions.assertEquals("INSTANCE_STOPPING", item.getName());
 	}
 
 	@Test
@@ -232,7 +233,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com", "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
-		Assert.assertEquals(0, projects.size());
+		Assertions.assertEquals(0, projects.size());
 	}
 
 	@Test
@@ -240,11 +241,14 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		execute(VmOperation.SHUTDOWN, "Action=StopInstances&InstanceId.1=i-12345678");
 	}
 
-	@Test(expected = BusinessException.class)
+	@Test
 	public void executeError() throws Exception {
-		mockAws("ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15", HttpStatus.SC_BAD_REQUEST,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(), "UTF-8"))
-						.execute(subscription, VmOperation.SHUTDOWN);
+		Assertions.assertEquals("tttt", Assertions.assertThrows(BusinessException.class, () -> {
+			mockAws("ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",
+					HttpStatus.SC_BAD_REQUEST,
+					IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(), "UTF-8"))
+							.execute(subscription, VmOperation.SHUTDOWN);
+		}).getMessage());
 	}
 
 	@Test
@@ -267,17 +271,19 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		execute(VmOperation.RESET, "Action=RebootInstances&InstanceId.1=i-12345678");
 	}
 
-	@Test(expected = BusinessException.class)
+	@Test
 	public void executeUnamanagedAction() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
 		mockRequest.setSaveResponse(true);
 		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
 				ArgumentMatchers.any(Map.class));
-		resource.execute(subscription, VmOperation.SUSPEND);
+		Assertions.assertEquals("tttt", Assertions.assertThrows(BusinessException.class, () -> {
+			resource.execute(subscription, VmOperation.SUSPEND);
+		}).getMessage());
 	}
 
-	@Test(expected = BusinessException.class)
+	@Test
 	public void executeFailed() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
@@ -293,7 +299,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		}), ArgumentMatchers.any(Map.class));
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_INTERNAL_SERVER_ERROR)));
 		httpServer.start();
-		resource.execute(subscription, VmOperation.SHUTDOWN);
+		Assertions.assertEquals("tttt", Assertions.assertThrows(BusinessException.class, () -> {
+			resource.execute(subscription, VmOperation.SHUTDOWN);
+		}).getMessage());
 	}
 
 	/**
@@ -306,10 +314,10 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	public void newRequest() throws Exception {
 		final CurlRequest request = resource.newRequest(AWS4SignatureQuery.builder().host("mock").path("/").body("body").service("s3"),
 				subscription);
-		Assert.assertTrue(request.getHeaders().containsKey("Authorization"));
-		Assert.assertEquals("https://mock/", request.getUrl());
-		Assert.assertEquals("POST", request.getMethod());
-		Assert.assertEquals("body", request.getContent());
+		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
+		Assertions.assertEquals("https://mock/", request.getUrl());
+		Assertions.assertEquals("POST", request.getMethod());
+		Assertions.assertEquals("body", request.getContent());
 	}
 
 	private VmAwsPluginResource mockAwsVm() throws IOException {
@@ -318,7 +326,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
 	}
 
-	@Test(expected = ValidationJsonException.class)
+	@Test
 	public void checkSubscriptionStatusDown() throws Exception {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
@@ -337,18 +345,19 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(404).withBody("")));
 		httpServer.start();
 
-		final SubscriptionStatusWithData status = resource.checkSubscriptionStatus(subscription, null, parameters);
-		Assert.assertFalse(status.getStatus().isUp());
+		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
+			resource.checkSubscriptionStatus(subscription, null, parameters);
+		}), "yyyyyy", "unknown-id");
 	}
 
 	@Test
 	public void validateAccessUp() throws Exception {
-		Assert.assertTrue(validateAccess(HttpStatus.SC_OK));
+		Assertions.assertTrue(validateAccess(HttpStatus.SC_OK));
 	}
 
 	@Test
 	public void validateAccessDown() throws Exception {
-		Assert.assertFalse(validateAccess(HttpStatus.SC_FORBIDDEN));
+		Assertions.assertFalse(validateAccess(HttpStatus.SC_FORBIDDEN));
 	}
 
 	private void execute(final VmOperation operation, final String body) throws Exception {
@@ -375,31 +384,31 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	private void checkVm(final AwsVm item) {
-		Assert.assertEquals("i-12345678", item.getId());
-		Assert.assertEquals("INSTANCE_ON", item.getName());
-		Assert.assertEquals("Custom description", item.getDescription());
-		Assert.assertEquals(VmStatus.POWERED_ON, item.getStatus());
-		Assert.assertFalse(item.isBusy());
-		Assert.assertEquals("vpc-11112222", item.getVpc());
-		Assert.assertTrue(item.isDeployed());
+		Assertions.assertEquals("i-12345678", item.getId());
+		Assertions.assertEquals("INSTANCE_ON", item.getName());
+		Assertions.assertEquals("Custom description", item.getDescription());
+		Assertions.assertEquals(VmStatus.POWERED_ON, item.getStatus());
+		Assertions.assertFalse(item.isBusy());
+		Assertions.assertEquals("vpc-11112222", item.getVpc());
+		Assertions.assertTrue(item.isDeployed());
 
 		// From the instance type details
-		Assert.assertEquals(1024, item.getRam());
-		Assert.assertEquals(1, item.getCpu());
+		Assertions.assertEquals(1024, item.getRam());
+		Assertions.assertEquals(1, item.getCpu());
 	}
 
 	private void checkVmDetails(final AwsVm item) {
 		checkVm(item);
 
 		// Check network
-		Assert.assertEquals(2, item.getNetworks().size());
-		Assert.assertEquals("10.0.0.236", item.getNetworks().get(0).getIp());
-		Assert.assertEquals("private", item.getNetworks().get(0).getType());
-		Assert.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", item.getNetworks().get(0).getDns());
-		Assert.assertEquals("1.2.3.4", item.getNetworks().get(1).getIp());
-		Assert.assertEquals("public", item.getNetworks().get(1).getType());
-		Assert.assertEquals("ec2-1.2.3.4.eu-west-1.compute.amazonaws.com", item.getNetworks().get(1).getDns());
-		Assert.assertEquals("eu-west-1b", item.getAz());
+		Assertions.assertEquals(2, item.getNetworks().size());
+		Assertions.assertEquals("10.0.0.236", item.getNetworks().get(0).getIp());
+		Assertions.assertEquals("private", item.getNetworks().get(0).getType());
+		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", item.getNetworks().get(0).getDns());
+		Assertions.assertEquals("1.2.3.4", item.getNetworks().get(1).getIp());
+		Assertions.assertEquals("public", item.getNetworks().get(1).getType());
+		Assertions.assertEquals("ec2-1.2.3.4.eu-west-1.compute.amazonaws.com", item.getNetworks().get(1).getDns());
+		Assertions.assertEquals("eu-west-1b", item.getAz());
 	}
 
 	private boolean validateAccess(int status) throws Exception {
