@@ -271,7 +271,6 @@ public class VmAwsSnapshotResource {
 	 *            the subscription parameters.
 	 * @param stop
 	 *            When <code>true</code> the relate is stopped before the snapshot.
-	 * @return The create AMI details.
 	 */
 	public void create(final int subscription, final Map<String, String> parameters, final boolean stop)
 			throws SAXException, IOException, ParserConfigurationException {
