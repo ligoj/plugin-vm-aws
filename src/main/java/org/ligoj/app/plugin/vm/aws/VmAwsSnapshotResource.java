@@ -13,7 +13,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -52,11 +51,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 public class VmAwsSnapshotResource {
-
-	/**
-	 * The shared XPATH factory. TODO Remove with API 2.0.3+
-	 */
-	public final XPathFactory xpathFactory = XPathFactory.newInstance();
 
 	/**
 	 * AWS tag prefix.
@@ -327,7 +321,7 @@ public class VmAwsSnapshotResource {
 		final String date = xml.getTagText(element, "creationDate");
 		try {
 			// Volumes
-			final XPath xPath = xpathFactory.newXPath();
+			final XPath xPath = xml.xpathFactory.newXPath();
 			final NodeList volumes = (NodeList) xPath.compile("blockDeviceMapping/item").evaluate(element, XPathConstants.NODESET);
 			snapshot.setVolumes(IntStream.range(0, volumes.getLength()).mapToObj(volumes::item).map(v -> toVolume((Element) v))
 					.filter(v -> v.getId() != null).collect(Collectors.toList()));
