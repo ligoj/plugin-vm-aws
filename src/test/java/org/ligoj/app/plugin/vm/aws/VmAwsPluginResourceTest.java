@@ -113,7 +113,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 					"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678", HttpStatus.SC_OK,
 					IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
 							.link(this.subscription);
-		}), "yyyyy", "unknown-id");
+		}), "service:vm:aws:id", "aws-instance-id");
 	}
 
 	@Test
@@ -243,7 +243,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void executeError() throws Exception {
-		Assertions.assertEquals("tttt", Assertions.assertThrows(BusinessException.class, () -> {
+		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
 			mockAws("ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",
 					HttpStatus.SC_BAD_REQUEST,
 					IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(), "UTF-8"))
@@ -278,7 +278,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		mockRequest.setSaveResponse(true);
 		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
 				ArgumentMatchers.any(Map.class));
-		Assertions.assertEquals("tttt", Assertions.assertThrows(BusinessException.class, () -> {
+		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
 			resource.execute(subscription, VmOperation.SUSPEND);
 		}).getMessage());
 	}
@@ -299,7 +299,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		}), ArgumentMatchers.any(Map.class));
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_INTERNAL_SERVER_ERROR)));
 		httpServer.start();
-		Assertions.assertEquals("tttt", Assertions.assertThrows(BusinessException.class, () -> {
+		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
 			resource.execute(subscription, VmOperation.SHUTDOWN);
 		}).getMessage());
 	}
@@ -347,7 +347,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
 			resource.checkSubscriptionStatus(subscription, null, parameters);
-		}), "yyyyyy", "unknown-id");
+		}), "service:vm:aws:id", "aws-instance-id");
 	}
 
 	@Test
