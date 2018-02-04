@@ -24,9 +24,7 @@ import org.ligoj.app.plugin.vm.snapshot.Snapshot;
 import org.ligoj.app.plugin.vm.snapshot.SnapshotResource;
 import org.ligoj.app.plugin.vm.snapshot.VolumeSnapshot;
 import org.ligoj.app.resource.plugin.XmlUtils;
-import org.ligoj.bootstrap.core.DateUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
-import org.ligoj.bootstrap.core.security.SecurityHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Element;
@@ -46,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
  * @see <a href=
  *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeregisterImage.html">API_DeregisterImage</a>
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html">API_DescribeImages</a>
+ * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html">API_CreateTags</a>
  */
 @Service
 @Slf4j
@@ -68,9 +67,6 @@ public class VmAwsSnapshotResource {
 	 * AWS tag for audit.
 	 */
 	public static final String TAG_AUDIT = TAG_PREFIX + "audit";
-
-	@Autowired
-	private SecurityHelper securityHelper;
 
 	@Autowired
 	protected VmAwsPluginResource resource;
@@ -118,14 +114,12 @@ public class VmAwsSnapshotResource {
 			final VmSnapshotStatus task) {
 		final List<Snapshot> snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
 				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
-		Optional.ofNullable(getNotValidatedAmi(snapshots, task)).filter(s -> matches(s, criteria)).ifPresent(s -> {
-			snapshots.add(0, s);
 
-			// Override the status since this AMI is not really GA
-			s.setPending(true);
-			s.setAvailable(false);
-			s.setStopRequested(task.isStop());
-		});
+		// Add the current task to the possible running snapshots
+		if (task != null) {
+			Optional.ofNullable(findUnlistedAmi(snapshots, task)).filter(s -> matches(s, criteria))
+					.ifPresent(s -> snapshots.add(0, s));
+		}
 		return snapshots;
 	}
 
@@ -138,40 +132,23 @@ public class VmAwsSnapshotResource {
 	 *            The task to complete.
 	 */
 	protected void completeStatus(final VmSnapshotStatus task) {
-		if (isMayNotFinishedRemote(task) && getNotValidatedAmi(task) == null) {
-			// Availability is now checked, update the status and the progress
-			updateAsFinishedRemote(task);
-		}
-	}
-
-	/**
-	 * Update the given task as finished remotely
-	 */
-	private void updateAsFinishedRemote(final VmSnapshotStatus task) {
-		task.setFinishedRemote(true);
-		task.setDone(3);
-		task.setPhase("checking-availability");
-	}
-
-	/**
-	 * Check the task may not be finished remotely : finished locally, not failed and not yet actually checked remotely.
-	 */
-	private boolean isMayNotFinishedRemote(final VmSnapshotStatus task) {
-		return task != null && task.isFinished() && !task.isFinishedRemote() && !task.isFailed();
-	}
-
-	/**
-	 * Return the AMI corresponding to the given task and that is not yet globally visible.
-	 * 
-	 * @param task
-	 *            The task to check.
-	 * @return The not yet globally visible AMI or <code>null</code>.
-	 */
-	private Snapshot getNotValidatedAmi(final VmSnapshotStatus task) {
-		return Optional.ofNullable(findById(task.getLocked().getId(), task.getSnapshotInternalId()))
-				.filter(s -> findAllBySubscription(task.getLocked().getId()).stream()
-						.noneMatch(o -> o.getId().equals(s.getId())))
-				.orElse(null);
+		Optional.ofNullable(task.getSnapshotInternalId()).ifPresent(id -> {
+			// Task is finished locally, AMI id is attached, check it remotely
+			final Snapshot ami = findById(task.getLocked().getId(), id);
+			if (ami == null) {
+				// AMI has been deleted of never been correctly created
+				task.setFailed(true);
+				task.setEnd(new Date());
+				task.setFinishedRemote(true);
+				task.setStatusText("not-found");
+			} else if (findAllBySubscription(task.getLocked().getId()).stream().anyMatch(o -> o.getId().equals(id))) {
+				// AMI is created and now listed
+				setFinishedRemote(task);
+			} else {
+				// AMI is created and not yet listed
+				task.setStatusText("not-finished-remote");
+			}
+		});
 	}
 
 	/**
@@ -183,17 +160,67 @@ public class VmAwsSnapshotResource {
 	 *            The task to check.
 	 * @return The not yet globally visible AMI or <code>null</code>.
 	 */
-	private Snapshot getNotValidatedAmi(final List<Snapshot> snapshots, final VmSnapshotStatus task) {
-		if (isMayNotFinishedRemote(task)) {
-			if (snapshots.stream().filter(s -> s.getId().equals(task.getSnapshotInternalId())).findAny().isPresent()) {
-				// AMI has been completed after the shutdown of the client
-				updateAsFinishedRemote(task);
+	private Snapshot findUnlistedAmi(final List<Snapshot> snapshots, final VmSnapshotStatus task) {
+		Snapshot ami = null;
+		if (task.isFailed()) {
+			task.setFinishedRemote(true);
+			ami = toAmi(task, null);
+			ami.setPending(false);
+		} else if (task.getSnapshotInternalId() == null) {
+			// AMI is not yet created at all
+			ami = toAmi(task, "not-created");
+		} else if (!task.isFinishedRemote()) {
+			// Asynchronous management : Create vs Describe
+			if (snapshots.stream().anyMatch(s -> s.getId().equals(task.getSnapshotInternalId()))) {
+				// AMI is listed, and has been completed after the shutdown of the client
+				setFinishedRemote(task);
 			} else {
-				// Snapshot created by the task is not in the given snapshot, find it by its id
-				return findById(task.getLocked().getId(), task.getSnapshotInternalId());
+				// AMI is unlisted, and yet has been created by the task, find it by its identifier
+				ami = findById(task.getLocked().getId(), task.getSnapshotInternalId());
+				if (ami == null) {
+					// AMI is unlisted and not yet found by AWS with direct link, would fail
+					ami = toAmi(task, "not-found");
+				} else {
+					// Complete the author from the task data
+					ami.setAuthor(getUser(task.getAuthor()));
+					setPending(ami, "not-finished-remote");
+				}
 			}
 		}
-		return null;
+		return ami;
+	}
+
+	/**
+	 * Convert a task to an unavailable snapshot
+	 */
+	private Snapshot toAmi(final VmSnapshotStatus task, final String statusText) {
+		final Snapshot taskAsSnapshot = new Snapshot();
+		taskAsSnapshot.setId(task.getSnapshotInternalId());
+		taskAsSnapshot.setAuthor(getUser(task.getAuthor()));
+		taskAsSnapshot.setDate(task.getStart());
+		taskAsSnapshot.setStopRequested(task.isStop());
+
+		// Override the status since this AMI is not really GA
+		setPending(taskAsSnapshot, StringUtils.defaultString(statusText, task.getStatusText()));
+		return taskAsSnapshot;
+	}
+
+	/**
+	 * Update the given task as finished remotely
+	 */
+	private void setFinishedRemote(final VmSnapshotStatus task) {
+		task.setFinishedRemote(true);
+		task.setDone(3);
+		task.setPhase("checking-availability");
+	}
+
+	/**
+	 * Mark the given snapshot as unavailable with the given status
+	 */
+	private void setPending(final Snapshot snapshot, final String statusText) {
+		snapshot.setPending(true);
+		snapshot.setAvailable(false);
+		snapshot.setStatusText(statusText);
 	}
 
 	/**
@@ -229,7 +256,7 @@ public class VmAwsSnapshotResource {
 					p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
 		} catch (final Exception e) {
 			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
-			throw new BusinessException("snapshot-find failed");
+			throw new BusinessException("DescribeImages-failed");
 		}
 	}
 
@@ -251,37 +278,41 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Create a new AMI from the given subscription. First, the related VM is located, then AMI is created, then tagged.
-	 * Related volumes snapshots are also tagged.
+	 * Create a new AMI from the given subscription. First, the name is fixed and based from the subscription and the
+	 * current date, then AMI is created, then tagged.
 	 * 
 	 * @param subscription
 	 *            The related subscription identifier.
 	 * @param parameters
 	 *            the subscription parameters.
-	 * @param stop
-	 *            When <code>true</code> the relate is stopped before the snapshot.
+	 * @param transientTask
+	 *            A transient instance of the related task, and also linked to the given subscription. Note it is a
+	 *            read-only view.
 	 */
-	public void create(final int subscription, final Map<String, String> parameters, final boolean stop)
-			throws SAXException, IOException, ParserConfigurationException {
+	public void create(final int subscription, final Map<String, String> parameters,
+			final VmSnapshotStatus transientTask) throws SAXException, IOException, ParserConfigurationException {
 		// Create the AMI
 		snapshotResource.nextStep(subscription, s -> {
 			s.setPhase("creating-ami");
 			s.setWorkload(3);
 		});
 		final String instanceId = parameters.get(VmAwsPluginResource.PARAMETER_INSTANCE_ID);
+		final String amiCreateDate = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(transientTask.getStart());
+		final String amiName = subscription + "/" + amiCreateDate;
 		final String amiResponse = resource.processEC2(subscription,
-				p -> "Action=CreateImage&NoReboot=" + (!stop) + "&InstanceId=" + instanceId + "&Name=ligoj-snapshot/"
-						+ subscription + "/" + DateUtils.newCalendar().getTimeInMillis()
-						+ "&Description=Snapshot+created+from+Ligoj");
+				p -> "Action=CreateImage&NoReboot=" + (!transientTask.isStop()) + "&InstanceId=" + instanceId
+						+ "&Name=ligoj-snapshot/" + amiName + "&Description=Snapshot+created+from+Ligoj");
 		if (amiResponse == null) {
 			// AMI creation failed
-			snapshotResource.endTask(subscription, true, s -> s.setStatusText(VmAwsPluginResource.KEY + ":ami-failed"));
+			snapshotResource.endTask(subscription, true, s -> {
+				s.setStatusText(VmAwsPluginResource.KEY + ":ami-create-failed");
+				s.setFinishedRemote(true);
+			});
 			return;
 		}
 
 		// Get the AMI details from its identifier after a little while
 		final String amiId = xml.getTagText(xml.parse(amiResponse), "imageId");
-		// Thread.sleep(5000); // This throttle is required or AMI may not be visible
 
 		// Tag for subscription and audit association
 		snapshotResource.nextStep(subscription, s -> {
@@ -292,8 +323,11 @@ public class VmAwsSnapshotResource {
 		if (resource.processEC2(subscription,
 				p -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION + "&Tag.1.Value="
 						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value="
-						+ securityHelper.getLogin()) == null) {
-			snapshotResource.endTask(subscription, true, s -> s.setStatusText(VmAwsPluginResource.KEY + ":ami-tag"));
+						+ transientTask.getAuthor()) == null) {
+			snapshotResource.endTask(subscription, true, s -> {
+				s.setStatusText(VmAwsPluginResource.KEY + ":ami-tag-failed");
+				s.setFinishedRemote(true);
+			});
 		} else {
 			snapshotResource.endTask(subscription, false, s -> {
 				s.setDone(2);

@@ -483,9 +483,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	@Override
-	public void snapshot(final int subscription, final Map<String, String> parameters, final boolean stop)
-			throws Exception {
-		snapshotResource.create(subscription, parameters, stop);
+	public void snapshot(final int subscription, final Map<String, String> parameters,
+			final VmSnapshotStatus transientTask) throws Exception {
+		snapshotResource.create(subscription, parameters, transientTask);
 	}
 
 	@Override

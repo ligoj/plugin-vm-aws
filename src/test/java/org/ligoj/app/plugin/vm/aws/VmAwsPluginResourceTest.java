@@ -467,8 +467,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
 		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
 		final Map<String, String> parameters = new HashMap<>();
-		resource.snapshot(subscription, parameters, true);
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).create(subscription, parameters, true);
+		final VmSnapshotStatus transientTask = new VmSnapshotStatus();
+		resource.snapshot(subscription, parameters, transientTask);
+		Mockito.verify(resource.snapshotResource, Mockito.times(1)).create(subscription, parameters, transientTask);
 	}
 
 	@Test
@@ -485,7 +486,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final VmAwsPluginResource resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
 		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
-		
+
 		final VmSnapshotStatus task = new VmSnapshotStatus();
 		resource.completeStatus(task);
 		Mockito.verify(resource.snapshotResource, Mockito.times(1)).completeStatus(task);

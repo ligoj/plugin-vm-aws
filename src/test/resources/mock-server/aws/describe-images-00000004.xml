@@ -3,7 +3,7 @@
     <requestId>00000000-0000-0000-0000-000000000000</requestId>
     <imagesSet>
         <item>
-            <imageId>ami-00000001</imageId>
+            <imageId>ami-00000004</imageId>
             <imageLocation>123456789012/sample-ligo2</imageLocation>
             <imageState>available</imageState>
             <imageOwnerId>123456789012</imageOwnerId>
@@ -39,5 +39,5 @@
             <virtualizationType>hvm</virtualizationType>
             <hypervisor>xen</hypervisor>
         </item>
-    </imagesSet>
+     </imagesSet>
 </DescribeImagesResponse>
