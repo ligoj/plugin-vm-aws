@@ -16,6 +16,9 @@ import javax.xml.xpath.XPathExpressionException;
 
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.ligoj.app.iam.IamProvider;
+import org.ligoj.app.iam.SimpleUser;
+import org.ligoj.app.iam.UserOrg;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
 import org.ligoj.app.plugin.vm.snapshot.Snapshot;
 import org.ligoj.app.plugin.vm.snapshot.SnapshotResource;
@@ -35,18 +38,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * AWS VM snapshot resource.
  * 
- * @see <a href=
- *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshot.html">API_CreateSnapshot</a>
+ * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshot.html">API_CreateSnapshot</a>
  * @see <a href=
  *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html">API_DescribeSnapshots</a>
- * @see <a href=
- *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteSnapshot.html">API_DeleteSnapshot</a>
- * @see <a href=
- *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html">API_CreateImage</a>
+ * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteSnapshot.html">API_DeleteSnapshot</a>
+ * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html">API_CreateImage</a>
  * @see <a href=
  *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeregisterImage.html">API_DeregisterImage</a>
- * @see <a href=
- *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html">API_DescribeImages</a>
+ * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html">API_DescribeImages</a>
  */
 @Service
 @Slf4j
@@ -74,26 +73,27 @@ public class VmAwsSnapshotResource {
 	private SecurityHelper securityHelper;
 
 	@Autowired
-	private VmAwsPluginResource resource;
+	protected VmAwsPluginResource resource;
 
 	@Autowired
-	private SnapshotResource snapshotResource;
+	protected SnapshotResource snapshotResource;
 
 	@Autowired
 	protected XmlUtils xml;
 
+	@Autowired
+	protected IamProvider[] iamProvider;
+
 	/**
-	 * Return all AMIs matching to the given criteria and also associated to the
-	 * given subscription. Note that "DescribeImages" does not work exactly the same
-	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there
-	 * is delay between CreateImage and its visibility.
+	 * Return all AMIs matching to the given criteria and also associated to the given subscription. Note that
+	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
+	 * filter, there is delay between CreateImage and its visibility.
 	 *
 	 * @param subscription
 	 *            The related subscription identifier.
 	 * @param criteria
-	 *            The search criteria. Case is insensitive. The criteria try to
-	 *            match the AMI's identifier, the AMI's name or one of its volume
-	 *            snapshots identifier machine name and identifier.
+	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
+	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
 	public List<Snapshot> findAllByNameOrId(final int subscription, final String criteria) {
@@ -101,22 +101,21 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Return all AMIs matching to the given criteria and also associated to the
-	 * given subscription. Note that "DescribeImages" does not work exactly the same
-	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there
-	 * is delay between CreateImage and its visibility.
+	 * Return all AMIs matching to the given criteria and also associated to the given subscription. Note that
+	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
+	 * filter, there is delay between CreateImage and its visibility.
 	 *
 	 * @param subscription
 	 *            The related subscription identifier.
 	 * @param criteria
-	 *            The search criteria. Case is insensitive. The criteria try to
-	 *            match the AMI's identifier, the AMI's name or one of its volume
-	 *            snapshots identifier machine name and identifier.
+	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
+	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
 	 * @param task
 	 *            The current task used to prepend the globally visible AMIs.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
-	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria, final VmSnapshotStatus task) {
+	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
+			final VmSnapshotStatus task) {
 		final List<Snapshot> snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
 				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
 		Optional.ofNullable(getNotValidatedAmi(snapshots, task)).filter(s -> matches(s, criteria)).ifPresent(s -> {
@@ -131,15 +130,14 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Complete the task status from remote AWS information. Is considered as not
-	 * completely finished when AMI tasks are finished without error at client side,
-	 * and that AMI can be found by its identifier and yet not listed with tag
+	 * Complete the task status from remote AWS information. Is considered as not completely finished when AMI tasks are
+	 * finished without error at client side, and that AMI can be found by its identifier and yet not listed with tag
 	 * filters.
 	 * 
 	 * @param task
 	 *            The task to complete.
 	 */
-	public void completeStatus(final VmSnapshotStatus task) {
+	protected void completeStatus(final VmSnapshotStatus task) {
 		if (isMayNotFinishedRemote(task) && getNotValidatedAmi(task) == null) {
 			// Availability is now checked, update the status and the progress
 			updateAsFinishedRemote(task);
@@ -156,16 +154,14 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Check the task may not be finished remotely : finished locally, not failed
-	 * and not yet actually checked remotely.
+	 * Check the task may not be finished remotely : finished locally, not failed and not yet actually checked remotely.
 	 */
 	private boolean isMayNotFinishedRemote(final VmSnapshotStatus task) {
-		return task.isFinished() && !task.isFinishedRemote() && !task.isFailed();
+		return task != null && task.isFinished() && !task.isFinishedRemote() && !task.isFailed();
 	}
 
 	/**
-	 * Return the AMI corresponding to the given task and that is not yet globally
-	 * visible.
+	 * Return the AMI corresponding to the given task and that is not yet globally visible.
 	 * 
 	 * @param task
 	 *            The task to check.
@@ -173,13 +169,13 @@ public class VmAwsSnapshotResource {
 	 */
 	private Snapshot getNotValidatedAmi(final VmSnapshotStatus task) {
 		return Optional.ofNullable(findById(task.getLocked().getId(), task.getSnapshotInternalId()))
-				.filter(s -> findAllBySubscription(task.getLocked().getId()).stream().noneMatch(o -> o.getId().equals(s.getId())))
+				.filter(s -> findAllBySubscription(task.getLocked().getId()).stream()
+						.noneMatch(o -> o.getId().equals(s.getId())))
 				.orElse(null);
 	}
 
 	/**
-	 * Return the AMI corresponding to the given task and that is not in the given
-	 * snapshot list.
+	 * Return the AMI corresponding to the given task and that is not in the given snapshot list.
 	 * 
 	 * @param snapshots
 	 *            The snapshots list to check.
@@ -201,10 +197,9 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Return all AMIs associated to the given subscription. Note that
-	 * "DescribeImages" does not work exactly the same way when
-	 * <code>ImageId.N</code> filter is enabled. Without this filter, there is delay
-	 * between CreateImage and its visibility.
+	 * Return all AMIs associated to the given subscription. Note that "DescribeImages" does not work exactly the same
+	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay between CreateImage and
+	 * its visibility.
 	 *
 	 * @param subscription
 	 *            The related subscription identifier.
@@ -215,25 +210,23 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Return all AMIs visible owned by the account associated to the subscription.
-	 * Note that "DescribeImages" does not work exactly the same way when
-	 * <code>ImageId.N</code> filter is enabled. Without this filter, there is delay
+	 * Return all AMIs visible owned by the account associated to the subscription. Note that "DescribeImages" does not
+	 * work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay
 	 * between CreateImage and its visibility.
 	 *
 	 * @param subscription
 	 *            The related subscription identifier.
 	 * @param filter
-	 *            The additional "DescribeImages" filters. The base filter is
-	 *            "Owner.1=self". When <code>null</code> or empty, all owned AMIs
-	 *            are returned.
+	 *            The additional "DescribeImages" filters. The base filter is "Owner.1=self". When <code>null</code> or
+	 *            empty, all owned AMIs are returned.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
 	private List<Snapshot> findAll(final int subscription, final String filter) {
 
 		// Get all AMI associated to a snapshot and the subscription
 		try {
-			return toAmis(
-					resource.processEC2(subscription, p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
+			return toAmis(resource.processEC2(subscription,
+					p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
 		} catch (final Exception e) {
 			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
 			throw new BusinessException("snapshot-find failed");
@@ -241,23 +234,25 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Find an AMI by its identifier. The images are not filtered by subscription
-	 * since the AMI identifier is provided by the CreateImage service.
+	 * Find an AMI by its identifier. The images are not filtered by subscription since the AMI identifier is provided
+	 * by the CreateImage service.
 	 */
 	private Snapshot findById(final int subscription, final String ami) {
 		return findAll(subscription, "&ImageId.1=" + ami).stream().findAny().orElse(null);
 	}
 
-	private boolean matches(Snapshot snapshot, String criteria) {
+	/**
+	 * Check the given snapshot matches to the criteria : name, id, or one of its volume id.
+	 */
+	private boolean matches(final Snapshot snapshot, final String criteria) {
 		return StringUtils.containsIgnoreCase(StringUtils.defaultIfEmpty(snapshot.getName(), ""), criteria)
 				|| StringUtils.containsIgnoreCase(snapshot.getId(), criteria)
 				|| snapshot.getVolumes().stream().anyMatch(v -> StringUtils.containsIgnoreCase(v.getId(), criteria));
 	}
 
 	/**
-	 * Create a new AMI from the given subscription. First, the related VM is
-	 * located, then AMI is created, then tagged. Related volumes snapshots are also
-	 * tagged.
+	 * Create a new AMI from the given subscription. First, the related VM is located, then AMI is created, then tagged.
+	 * Related volumes snapshots are also tagged.
 	 * 
 	 * @param subscription
 	 *            The related subscription identifier.
@@ -275,8 +270,9 @@ public class VmAwsSnapshotResource {
 		});
 		final String instanceId = parameters.get(VmAwsPluginResource.PARAMETER_INSTANCE_ID);
 		final String amiResponse = resource.processEC2(subscription,
-				p -> "Action=CreateImage&NoReboot=" + (!stop) + "&InstanceId=" + instanceId + "&Name=ligoj-snapshot/" + subscription + "/"
-						+ DateUtils.newCalendar().getTimeInMillis() + "&Description=Snapshot+created+from+Ligoj");
+				p -> "Action=CreateImage&NoReboot=" + (!stop) + "&InstanceId=" + instanceId + "&Name=ligoj-snapshot/"
+						+ subscription + "/" + DateUtils.newCalendar().getTimeInMillis()
+						+ "&Description=Snapshot+created+from+Ligoj");
 		if (amiResponse == null) {
 			// AMI creation failed
 			snapshotResource.endTask(subscription, true, s -> s.setStatusText(VmAwsPluginResource.KEY + ":ami-failed"));
@@ -293,8 +289,10 @@ public class VmAwsSnapshotResource {
 			s.setSnapshotInternalId(amiId);
 			s.setDone(1);
 		});
-		if (resource.processEC2(subscription, p -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION
-				+ "&Tag.1.Value=" + subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value=" + securityHelper.getLogin()) == null) {
+		if (resource.processEC2(subscription,
+				p -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION + "&Tag.1.Value="
+						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value="
+						+ securityHelper.getLogin()) == null) {
 			snapshotResource.endTask(subscription, true, s -> s.setStatusText(VmAwsPluginResource.KEY + ":ami-tag"));
 		} else {
 			snapshotResource.endTask(subscription, false, s -> {
@@ -313,28 +311,53 @@ public class VmAwsSnapshotResource {
 		final Snapshot snapshot = new Snapshot();
 		snapshot.setId(xml.getTagText(element, "imageId"));
 		snapshot.setName(xml.getTagText(element, "name"));
-		snapshot.setDescription(xml.getTagText(element, "description"));
+		snapshot.setDescription(StringUtils.trimToNull(xml.getTagText(element, "description")));
 		snapshot.setStatusText(xml.getTagText(element, "imageState"));
 		snapshot.setAvailable("available".equals(snapshot.getStatusText()));
 		snapshot.setPending("pending".equals(snapshot.getStatusText()));
 
 		final String date = xml.getTagText(element, "creationDate");
+		final XPath xPath = xml.xpathFactory.newXPath();
 		try {
+			// Author
+			final NodeList tags = (NodeList) xPath.compile("tagSet/item").evaluate(element, XPathConstants.NODESET);
+			snapshot.setAuthor(IntStream.range(0, tags.getLength()).mapToObj(tags::item)
+					.filter(t -> TAG_AUDIT.equals(xml.getTagText((Element) t, "key")))
+					.map(t -> xml.getTagText((Element) t, "value")).map(this::getUser).findAny().orElse(null));
+
 			// Volumes
-			final XPath xPath = xml.xpathFactory.newXPath();
-			final NodeList volumes = (NodeList) xPath.compile("blockDeviceMapping/item").evaluate(element, XPathConstants.NODESET);
-			snapshot.setVolumes(IntStream.range(0, volumes.getLength()).mapToObj(volumes::item).map(v -> toVolume((Element) v))
-					.filter(v -> v.getId() != null).collect(Collectors.toList()));
+			final NodeList volumes = (NodeList) xPath.compile("blockDeviceMapping/item").evaluate(element,
+					XPathConstants.NODESET);
+			snapshot.setVolumes(IntStream.range(0, volumes.getLength()).mapToObj(volumes::item)
+					.map(v -> toVolume((Element) v)).filter(v -> v.getId() != null).collect(Collectors.toList()));
 
 			// Creation date
 			snapshot.setDate(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX").parse(date));
 		} catch (final Exception pe) {
+			// Invalid of not correctly managed XML content
 			snapshot.setVolumes(ListUtils.emptyIfNull(snapshot.getVolumes()));
 			snapshot.setDate(new Date(0));
 			log.info("Details of AMI {} cannot be fully parsed", snapshot.getId(), pe);
 		}
 
 		return snapshot;
+	}
+
+	/**
+	 * Request IAM provider to get user details.
+	 * 
+	 * @param login
+	 *            The requested user login.
+	 * @return Either the resolved instance, either <code>null</code> when not found.
+	 */
+	protected SimpleUser getUser(final String login) {
+		return Optional.ofNullable(iamProvider[0].getConfiguration().getUserRepository().findById(login))
+				.orElseGet(() -> {
+					// Untracked user
+					final UserOrg user = new UserOrg();
+					user.setId(login);
+					return user;
+				});
 	}
 
 	/**
@@ -365,9 +388,10 @@ public class VmAwsSnapshotResource {
 	private List<Snapshot> toAmis(final String amisAsXml)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		final NodeList items = xml.getXpath(
-				StringUtils.defaultIfEmpty(amisAsXml, "<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
+				StringUtils.defaultIfEmpty(amisAsXml,
+						"<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
 				"/DescribeImagesResponse/imagesSet/item");
-		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toAmi((Element) n)).collect(Collectors.toList());
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toAmi((Element) n))
+				.collect(Collectors.toList());
 	}
-
 }
