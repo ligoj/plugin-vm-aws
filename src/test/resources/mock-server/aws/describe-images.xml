@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <DescribeImagesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
-    <requestId>c8371fd0-20d7-4817-947a-82e113407b11</requestId>
+    <requestId>00000000-0000-0000-0000-000000000000</requestId>
     <imagesSet>
         <item>
-            <imageId>ami-094b2f70</imageId>
-            <imageLocation>181834766849/sample-ligo2</imageLocation>
+            <imageId>ami-00000001</imageId>
+            <imageLocation>123456789012/sample-ligo2</imageLocation>
             <imageState>available</imageState>
-            <imageOwnerId>181834766849</imageOwnerId>
+            <imageOwnerId>123456789012</imageOwnerId>
             <creationDate>2018-01-23T16:46:45.000Z</creationDate>
             <isPublic>false</isPublic>
             <architecture>x86_64</architecture>
             <imageType>machine</imageType>
             <sriovNetSupport>simple</sriovNetSupport>
             <name>sample-ligo2</name>
-            <description/>
+            <description>Information</description>
             <rootDeviceType>ebs</rootDeviceType>
             <rootDeviceName>/dev/sda1</rootDeviceName>
             <blockDeviceMapping>

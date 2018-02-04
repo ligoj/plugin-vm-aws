@@ -159,7 +159,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private NodeRepository nodeRepository;
 
 	@Autowired
-	private VmAwsSnapshotResource snaphotResource;
+	protected VmAwsSnapshotResource snapshotResource;
 
 	@Autowired
 	private CsvForBean csvForBean;
@@ -485,17 +485,17 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	@Override
 	public void snapshot(final int subscription, final Map<String, String> parameters, final boolean stop)
 			throws Exception {
-		snaphotResource.create(subscription, parameters, stop);
+		snapshotResource.create(subscription, parameters, stop);
 	}
 
 	@Override
 	public List<Snapshot> findAllSnapshots(final int subscription, final String criteria) throws Exception {
-		return snaphotResource.findAllByNameOrId(subscription, StringUtils.trimToEmpty(criteria));
+		return snapshotResource.findAllByNameOrId(subscription, StringUtils.trimToEmpty(criteria));
 	}
 
 	@Override
 	public void completeStatus(final VmSnapshotStatus task) {
-		snaphotResource.completeStatus(task);
+		snapshotResource.completeStatus(task);
 	}
 
 }
