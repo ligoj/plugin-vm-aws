@@ -32,7 +32,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizeHeaderNames(java.util.Map)}.
 	 */
 	@Test
-	public void testGetCanonicalizeHeaderNames() throws Exception {
+	public void testGetCanonicalizeHeaderNames() {
 		final String headerNames = signer.getCanonicalizeHeaderNames(ImmutableMap.of("header2", "h2", "header1", "h1"));
 		Assertions.assertEquals("header1;header2", headerNames);
 	}
@@ -42,7 +42,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
 	 */
 	@Test
-	public void testGetCanonicalizedHeaderStringWithoutHeaders() throws Exception {
+	public void testGetCanonicalizedHeaderStringWithoutHeaders() {
 		final String headerNames = signer.getCanonicalizedHeaderString(new HashMap<String, String>());
 		Assertions.assertEquals("", headerNames);
 	}
@@ -52,7 +52,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
 	 */
 	@Test
-	public void testGetCanonicalizedHeaderString() throws Exception {
+	public void testGetCanonicalizedHeaderString() {
 		final String headerNames = signer.getCanonicalizedHeaderString(ImmutableMap.of("header2", "h  2", "header1", "h1"));
 		Assertions.assertEquals("header1:h1\nheader2:h 2\n", headerNames);
 	}
@@ -62,7 +62,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalRequest(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)}.
 	 */
 	@Test
-	public void testGetCanonicalRequest() throws Exception {
+	public void testGetCanonicalRequest() {
 		final String headerNames = signer.getCanonicalRequest("path", "GET", "q=1", "header1;header2", "header1:h1\nheader2:h 2\n",
 				"bodyhash");
 		Assertions.assertEquals("GET\n/path\nq=1\nheader1:h1\nheader2:h 2\n\nheader1;header2\nbodyhash", headerNames);
@@ -73,7 +73,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
-	public void testGetCanonicalizedResourcePathNull() throws Exception {
+	public void testGetCanonicalizedResourcePathNull() {
 		Assertions.assertEquals("/", signer.getCanonicalizedResourcePath(null));
 	}
 
@@ -82,7 +82,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
-	public void testGetCanonicalizedResourcePathEmpty() throws Exception {
+	public void testGetCanonicalizedResourcePathEmpty() {
 		Assertions.assertEquals("/", signer.getCanonicalizedResourcePath(""));
 	}
 
@@ -91,7 +91,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
-	public void testGetCanonicalizedResourcePathWithoutFirstSlash() throws Exception {
+	public void testGetCanonicalizedResourcePathWithoutFirstSlash() {
 		Assertions.assertEquals("/path", signer.getCanonicalizedResourcePath("path"));
 	}
 
@@ -100,7 +100,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
-	public void testGetCanonicalizedResourcePathWithFirstSlash() throws Exception {
+	public void testGetCanonicalizedResourcePathWithFirstSlash() {
 		Assertions.assertEquals("/path", signer.getCanonicalizedResourcePath("/path"));
 	}
 
@@ -124,7 +124,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
-	public void testGetCanonicalizedQueryStringEmpty() throws Exception {
+	public void testGetCanonicalizedQueryStringEmpty() {
 		Assertions.assertEquals("", signer.getCanonicalizedQueryString(ImmutableMap.of()));
 	}
 
@@ -133,7 +133,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
-	public void testGetCanonicalizedQueryString() throws Exception {
+	public void testGetCanonicalizedQueryString() {
 		Assertions.assertEquals("q1=v1&q2=v2", signer.getCanonicalizedQueryString(ImmutableMap.of("q2", "v2", "q1", "v1")));
 	}
 
@@ -142,7 +142,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
-	public void testGetCanonicalizedQueryStringException() throws Exception {
+	public void testGetCanonicalizedQueryStringException() throws EncoderException {
 		final AWS4SignerBase signer = new AWS4SignerVMForAuthorizationHeader();
 		final URLCodec urlCodec = Mockito.mock(URLCodec.class);
 		ReflectionTestUtils.setField(signer, "urlCodec", urlCodec);
@@ -157,7 +157,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getStringToSign(java.lang.String, java.lang.String, java.lang.String)}.
 	 */
 	@Test
-	public void testGetStringToSign() throws Exception {
+	public void testGetStringToSign() {
 		Assertions.assertEquals("AWS4-HMAC-SHA256\ndate\nscope\n1f58b9145b24d108d7ac38887338b3ea3229833b9c1e418250343f907bfd1047",
 				signer.getStringToSign("date", "scope", "request"));
 	}
@@ -167,7 +167,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#hash(java.lang.String)}.
 	 */
 	@Test
-	public void testHash() throws Exception {
+	public void testHash() {
 		Assertions.assertEquals("982d9e3eb996f559e633f4d194def3761d909f5a3b647d1a851fead67c32c9d1", signer.hash("text"));
 	}
 
@@ -176,7 +176,7 @@ public class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#sign(java.lang.String, byte[])}.
 	 */
 	@Test
-	public void testSign() throws Exception {
+	public void testSign() {
 		Assertions.assertEquals("ee87b52bc435b6a4aeea07fc1e2499fd4a801487ef675a00a629b7264663d8fa",
 				Hex.encodeHexString(signer.sign("text", new byte[] { 1, 2, 3, 4, 5 })));
 	}

@@ -26,7 +26,7 @@ public class AWS4SignerVMForAuthorizationHeaderTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery)}.
 	 */
 	@Test
-	public void testComputeSignature() throws Exception {
+	public void testComputeSignature() {
 		ReflectionTestUtils.setField(signer, "clock",
 				Clock.fixed(LocalDateTime.of(2017, 5, 29, 22, 15).toInstant(ZoneOffset.UTC), ZoneOffset.UTC.normalized()));
 		final AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().accessKey("awsAccessKey").secretKey("awsSecretKey")
@@ -41,7 +41,7 @@ public class AWS4SignerVMForAuthorizationHeaderTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery)}.
 	 */
 	@Test
-	public void testComputeSignatureWithBody() throws Exception {
+	public void testComputeSignatureWithBody() {
 		ReflectionTestUtils.setField(signer, "clock",
 				Clock.fixed(LocalDateTime.of(2017, 5, 29, 22, 15).toInstant(ZoneOffset.UTC), ZoneOffset.UTC.normalized()));
 		final AWS4SignatureQuery signatureQuery = AWS4SignatureQuery.builder().accessKey("awsAccessKey").secretKey("awsSecretKey")

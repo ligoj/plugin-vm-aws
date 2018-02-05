@@ -88,7 +88,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		resource = new VmAwsPluginResource() {
 			@Override
-			public boolean validateAccess(final Map<String, String> parameters) throws Exception {
+			public boolean validateAccess(final Map<String, String> parameters) {
 				return true;
 			}
 		};
@@ -107,7 +107,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void linkFailed() throws Exception {
+	public void linkFailed() {
 		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
 			mockAws("ec2.eu-west-1.amazonaws.com",
 					"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678",
@@ -118,7 +118,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void getVmDetailsNotFound() throws Exception {
+	public void getVmDetailsNotFound() {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
 		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
@@ -253,7 +253,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void executeError() throws Exception {
+	public void executeError() {
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
 			mockAws("ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",
 					HttpStatus.SC_BAD_REQUEST, IOUtils.toString(
@@ -284,7 +284,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void executeUnamanagedAction() throws Exception {
+	public void executeUnamanagedAction() {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
 		mockRequest.setSaveResponse(true);
@@ -297,7 +297,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void executeFailed() throws Exception {
+	public void executeFailed() {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
 		mockRequest.setSaveResponse(true);
@@ -326,7 +326,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	 *             exception
 	 */
 	@Test
-	public void newRequest() throws Exception {
+	public void newRequest() {
 		final CurlRequest request = resource.newRequest(
 				AWS4SignatureQuery.builder().host("mock").path("/").body("body").service("s3"), subscription);
 		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
@@ -344,7 +344,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void checkSubscriptionStatusDown() throws Exception {
+	public void checkSubscriptionStatusDown() {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));

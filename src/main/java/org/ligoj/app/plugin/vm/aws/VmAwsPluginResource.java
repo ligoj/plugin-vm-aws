@@ -121,7 +121,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @see <a href="http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StopInstances.html">StopInstances</a>
 	 * @see <a href="http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StartInstances.html">StartInstances</a>
 	 */
-	public static final Map<VmOperation, String> OPERATION_TO_ACTION = new EnumMap<>(VmOperation.class);
+	private static final Map<VmOperation, String> OPERATION_TO_ACTION = new EnumMap<>(VmOperation.class);
 	static {
 		OPERATION_TO_ACTION.put(VmOperation.OFF, "StopInstances&Force=true");
 		OPERATION_TO_ACTION.put(VmOperation.SHUTDOWN, "StopInstances");
@@ -132,7 +132,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * VM code to {@link VmStatus} mapping.
 	 */
-	public static final Map<Integer, VmStatus> CODE_TO_STATUS = new HashMap<>();
+	private static final Map<Integer, VmStatus> CODE_TO_STATUS = new HashMap<>();
 	static {
 		CODE_TO_STATUS.put(16, VmStatus.POWERED_ON);
 		CODE_TO_STATUS.put(STATE_TERMINATED, VmStatus.POWERED_OFF); // TERMINATED
@@ -144,7 +144,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * VM busy AWS state codes
 	 */
-	public static final int[] BUSY_CODES = { 0, 32, 64 };
+	private static final int[] BUSY_CODES = { 0, 32, 64 };
 
 	@Autowired
 	private AWS4SignerVMForAuthorizationHeader signer;
@@ -337,7 +337,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return <code>true</code> if AWS connection is up
 	 */
 	@Override
-	public boolean checkStatus(final Map<String, String> parameters) throws Exception {
+	public boolean checkStatus(final Map<String, String> parameters) {
 		return validateAccess(parameters);
 	}
 
@@ -351,7 +351,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	@Override
-	public void execute(final int subscription, final VmOperation operation) throws Exception {
+	public void execute(final int subscription, final VmOperation operation)
+			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(operation)).map(
 				a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
 				.orElse(null);
@@ -368,7 +369,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *            the EC2 response markup.
 	 * @return <code>true</code> when the transition succeed.
 	 */
-	private boolean logTransitionState(final String response) throws Exception {
+	private boolean logTransitionState(final String response)
+			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		final NodeList items = xml.getXpath(ObjectUtils.defaultIfNull(response, "<a></a>"),
 				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> (Element) n)
@@ -392,7 +394,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *            Subscription parameters.
 	 * @return <code>true</code> if AWS connection is up
 	 */
-	protected boolean validateAccess(final Map<String, String> parameters) throws Exception {
+	protected boolean validateAccess(final Map<String, String> parameters) {
 		// Call S3 ls service
 		// TODO Use EC2 instead of S3
 		final AWS4SignatureQueryBuilder signatureQueryBuilder = AWS4SignatureQuery.builder().method("GET").service("s3")
@@ -401,7 +403,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	@Override
-	public void afterPropertiesSet() throws Exception {
+	public void afterPropertiesSet() throws IOException {
 		instanceTypes = csvForBean.toBean(InstanceType.class, "csv/instance-type-details.csv").stream()
 				.collect(Collectors.toMap(InstanceType::getId, Function.identity()));
 
@@ -489,7 +491,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	@Override
-	public List<Snapshot> findAllSnapshots(final int subscription, final String criteria) throws Exception {
+	public List<Snapshot> findAllSnapshots(final int subscription, final String criteria) {
 		return snapshotResource.findAllByNameOrId(subscription, StringUtils.trimToEmpty(criteria));
 	}
 
