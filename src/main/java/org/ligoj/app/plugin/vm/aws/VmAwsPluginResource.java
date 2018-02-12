@@ -204,7 +204,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return virtual machines.
 	 */
 	@GET
-	@Path("{node:[a-z].*}/{criteria}")
+	@Path("{node:service:.+}/{criteria}")
 	@Consumes(MediaType.APPLICATION_JSON)
 	public List<AwsVm> findAllByNameOrId(@PathParam("node") final String node,
 			@PathParam("criteria") final String criteria)
