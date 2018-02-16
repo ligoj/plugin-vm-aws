@@ -15,13 +15,15 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 
 import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.ligoj.app.iam.IamProvider;
 import org.ligoj.app.iam.SimpleUser;
 import org.ligoj.app.iam.UserOrg;
+import org.ligoj.app.plugin.vm.model.SnapshotOperation;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
 import org.ligoj.app.plugin.vm.snapshot.Snapshot;
-import org.ligoj.app.plugin.vm.snapshot.SnapshotResource;
+import org.ligoj.app.plugin.vm.snapshot.VmSnapshotResource;
 import org.ligoj.app.plugin.vm.snapshot.VolumeSnapshot;
 import org.ligoj.app.resource.plugin.XmlUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
@@ -72,7 +74,7 @@ public class VmAwsSnapshotResource {
 	protected VmAwsPluginResource resource;
 
 	@Autowired
-	protected SnapshotResource snapshotResource;
+	protected VmSnapshotResource snapshotResource;
 
 	@Autowired
 	protected XmlUtils xml;
@@ -119,6 +121,9 @@ public class VmAwsSnapshotResource {
 		if (task != null) {
 			Optional.ofNullable(findUnlistedAmi(snapshots, task)).filter(s -> matches(s, criteria))
 					.ifPresent(s -> snapshots.add(0, s));
+			
+			// Update the operation type from the task
+			snapshots.stream().filter(s-> StringUtils.equals(task.getSnapshotInternalId(),s.getId())).forEach(s->s.setOperation(task.getOperation()));
 		}
 		return snapshots;
 	}
@@ -132,8 +137,9 @@ public class VmAwsSnapshotResource {
 	 *            The task to complete.
 	 */
 	protected void completeStatus(final VmSnapshotStatus task) {
-		Optional.ofNullable(task.getSnapshotInternalId()).ifPresent(id -> {
-			// Task is finished locally, AMI id is attached, check it remotely
+		if (task.getOperation() == SnapshotOperation.CREATE && task.getSnapshotInternalId() != null) {
+			// Create task is finished locally, AMI id is attached, check it remotely
+			final String id = task.getSnapshotInternalId();
 			final Snapshot ami = findById(task.getLocked().getId(), id);
 			if (ami == null) {
 				// AMI has been deleted of never been correctly created
@@ -148,7 +154,7 @@ public class VmAwsSnapshotResource {
 				// AMI is created and not yet listed
 				task.setStatusText("not-finished-remote");
 			}
-		});
+		}
 	}
 
 	/**
@@ -320,10 +326,9 @@ public class VmAwsSnapshotResource {
 			s.setSnapshotInternalId(amiId);
 			s.setDone(1);
 		});
-		if (resource.processEC2(subscription,
+		if (!isReturnTrue(resource.processEC2(subscription,
 				p -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION + "&Tag.1.Value="
-						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value="
-						+ transientTask.getAuthor()) == null) {
+						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value=" + transientTask.getAuthor()))) {
 			snapshotResource.endTask(subscription, true, s -> {
 				s.setStatusText(VmAwsPluginResource.KEY + ":ami-tag-failed");
 				s.setFinishedRemote(true);
@@ -336,6 +341,79 @@ public class VmAwsSnapshotResource {
 				s.setPhase("checking-availability");
 			});
 		}
+	}
+
+	/**
+	 * Indicate the AWS response is <code>true</code>.
+	 * 
+	 * @param response
+	 *            The AWS response.
+	 * @return <code>true</code> when the AWS response succeed.
+	 * @throws ParserConfigurationException
+	 *             XML parsing failed.
+	 * @throws IOException
+	 *             XML reading failed by the parser.
+	 * @throws SAXException
+	 *             XML processing failed.
+	 */
+	private boolean isReturnTrue(final String response) throws SAXException, IOException, ParserConfigurationException {
+		return response != null && BooleanUtils.toBoolean(xml.getTagText(xml.parse(response), "return"));
+	}
+
+	public void delete(final int subscription, final Map<String, String> parameters,
+			final VmSnapshotStatus transientTask) throws SAXException, IOException, ParserConfigurationException {
+		// Initiate the task, validate the AMI to delete
+		snapshotResource.nextStep(subscription, s -> {
+			s.setPhase("searching-ami");
+			s.setWorkload(3);
+		});
+
+		final String amiId = transientTask.getSnapshotInternalId();
+		final Snapshot ami = findById(subscription, amiId);
+
+		if (ami == null) {
+			// AMI has been deleted of never been correctly created
+			snapshotResource.endTask(subscription, true, s -> {
+				s.setStatusText(VmAwsPluginResource.KEY + ":ami-not-found");
+				s.setFinishedRemote(true);
+			});
+			return;
+		}
+
+		// AMI has been found, unregister it
+		snapshotResource.nextStep(subscription, s -> {
+			s.setPhase("deregistering-ami");
+			s.setDone(1);
+		});
+		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeregisterImage&ImageId=" + amiId))) {
+			// Unregistering failed
+			snapshotResource.endTask(subscription, true, s -> {
+				s.setStatusText(VmAwsPluginResource.KEY + ":ami-unregistering-failed");
+				s.setFinishedRemote(true);
+			});
+			return;
+		}
+
+		// AMI unregistering has been forwarded, need to delete the snapshot now
+		snapshotResource.nextStep(subscription, s -> {
+			s.setPhase("deleting-snapshots");
+			s.setDone(2);
+		});
+		final StringBuilder query = new StringBuilder();
+		IntStream.range(0, ami.getVolumes().size())
+				.forEach(i -> query.append("&SnapshotId." + (i + 1) + "=" + ami.getVolumes().get(i).getId()));
+		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeleteSnapshot" + query.toString()))) {
+			// Deleting snapshots failed
+			snapshotResource.endTask(subscription, true, s -> {
+				s.setStatusText(VmAwsPluginResource.KEY + ":ami-deleting-snapshots-failed");
+				s.setFinishedRemote(true);
+			});
+			return;
+		}
+		snapshotResource.endTask(subscription, false, s -> {
+			s.setDone(3);
+			s.setFinishedRemote(true);
+		});
 	}
 
 	/**

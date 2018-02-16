@@ -500,4 +500,10 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		snapshotResource.completeStatus(task);
 	}
 
+	@Override
+	public void delete(int subscription, Map<String, String> parameters, VmSnapshotStatus transientTask)
+			throws Exception {
+		snapshotResource.delete(subscription, parameters, transientTask);
+	}
+
 }

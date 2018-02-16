@@ -473,6 +473,17 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
+	public void deleteSnapshot() throws Exception {
+		final VmAwsPluginResource resource = new VmAwsPluginResource();
+		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
+		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
+		final Map<String, String> parameters = new HashMap<>();
+		final VmSnapshotStatus transientTask = new VmSnapshotStatus();
+		resource.delete(subscription, parameters, transientTask);
+		Mockito.verify(resource.snapshotResource, Mockito.times(1)).delete(subscription, parameters, transientTask);
+	}
+
+	@Test
 	public void findAllSnapshots() throws Exception {
 		final VmAwsPluginResource resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);

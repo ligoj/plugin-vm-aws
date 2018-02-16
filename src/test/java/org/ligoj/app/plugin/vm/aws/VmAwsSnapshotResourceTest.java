@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import javax.transaction.Transactional;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Assertions;
@@ -26,10 +27,11 @@ import org.ligoj.app.model.Parameter;
 import org.ligoj.app.model.ParameterValue;
 import org.ligoj.app.model.Project;
 import org.ligoj.app.model.Subscription;
+import org.ligoj.app.plugin.vm.model.SnapshotOperation;
 import org.ligoj.app.plugin.vm.model.VmSchedule;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
 import org.ligoj.app.plugin.vm.snapshot.Snapshot;
-import org.ligoj.app.plugin.vm.snapshot.SnapshotResource;
+import org.ligoj.app.plugin.vm.snapshot.VmSnapshotResource;
 import org.ligoj.app.resource.subscription.SubscriptionResource;
 import org.ligoj.bootstrap.core.DateUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
@@ -41,6 +43,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.xml.sax.SAXException;
 
 import net.sf.ehcache.CacheManager;
 
@@ -76,7 +79,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		resource = new VmAwsSnapshotResource();
 		applicationContext.getAutowireCapableBeanFactory().autowireBean(resource);
-		resource.snapshotResource = Mockito.mock(SnapshotResource.class);
+		resource.snapshotResource = Mockito.mock(VmSnapshotResource.class);
 		resource.resource = Mockito.mock(VmAwsPluginResource.class);
 	}
 
@@ -139,7 +142,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		Assertions.assertFalse(snapshosts.get(0).isPending());
 		Assertions.assertFalse(snapshosts.get(0).isAvailable());
 		Assertions.assertEquals("some-error", snapshosts.get(0).getStatusText());
-}
+	}
 
 	/**
 	 * Last snapshot task is locally finished but the AMI is not yet listed and not found by direct lookup.
@@ -310,6 +313,27 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	}
 
 	/**
+	 * Finished locally, but not for a CREATE snapshot.
+	 */
+	@Test
+	void completeStatusNotCreate() {
+		final VmSnapshotStatus status = new VmSnapshotStatus();
+		status.setEnd(new Date());
+		status.setAuthor("ligoj-admin2");
+		status.setSnapshotInternalId("ami-00000004");
+		status.setLocked(subscriptionRepository.findOneExpected(subscription));
+		status.setOperation(SnapshotOperation.DELETE);
+		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+
+		// This would do nothing for this operation
+		resource.completeStatus(status);
+
+		// Status is not changed
+		Assertions.assertFalse(status.isFinishedRemote());
+
+	}
+
+	/**
 	 * Finished locally, lookup by id succeed and listed : finished remotely
 	 */
 	@Test
@@ -473,12 +497,133 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void createTagsFail() throws Exception {
+	public void deleteSearchingNotFound() throws SAXException, IOException, ParserConfigurationException {
+		final VmSnapshotStatus status = mockDeleteStatus();
+
+		// Main call
+		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+
+		Assertions.assertTrue(status.isFinished());
+		Assertions.assertTrue(status.isFailed());
+		Assertions.assertTrue(status.isFinishedRemote());
+		Assertions.assertEquals("searching-ami", status.getPhase());
+		Assertions.assertEquals(VmAwsPluginResource.KEY + ":ami-not-found", status.getStatusText());
+		Assertions.assertEquals(0, status.getDone());
+		Assertions.assertEquals(3, status.getWorkload());
+		Assertions.assertEquals("ami-00000004", status.getSnapshotInternalId());
+	}
+
+	@Test
+	public void deleteDeregisteringFailed() throws SAXException, IOException, ParserConfigurationException {
+		final VmSnapshotStatus status = mockDeleteStatus();
+		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
+				"mock-server/aws/describe-images-00000004.xml");
+		checkDeregisteringFail(status);
+	}
+
+	@Test
+	public void deleteDeregisteringReturnFalse() throws SAXException, IOException, ParserConfigurationException {
+		final VmSnapshotStatus status = mockDeleteStatus();
+		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
+				"mock-server/aws/describe-images-00000004.xml");
+		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image-return-false.xml");
+		checkDeregisteringFail(status);
+	}
+
+	private VmSnapshotStatus mockDeleteStatus() {
+		final VmSnapshotStatus status = mockStatus();
+		status.setOperation(SnapshotOperation.DELETE);
+		status.setSnapshotInternalId("ami-00000004");
+		return status;
+	}
+
+	private void checkDeregisteringFail(final VmSnapshotStatus status)
+			throws SAXException, IOException, ParserConfigurationException {
+		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		Assertions.assertTrue(status.isFinished());
+		Assertions.assertTrue(status.isFailed());
+		Assertions.assertTrue(status.isFinishedRemote());
+		Assertions.assertEquals("deregistering-ami", status.getPhase());
+		Assertions.assertEquals(VmAwsPluginResource.KEY + ":ami-unregistering-failed", status.getStatusText());
+		Assertions.assertEquals(1, status.getDone());
+		Assertions.assertEquals(3, status.getWorkload());
+		Assertions.assertEquals("ami-00000004", status.getSnapshotInternalId());
+	}
+
+	@Test
+	public void deleteSnapshotsFail() throws SAXException, IOException, ParserConfigurationException {
+		final VmSnapshotStatus status = mockDeleteStatus();
+		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
+				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
+		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
+		checkDeleteSnapshotsFail(status);
+	}
+
+	@Test
+	public void deleteSnapshotsReturnFalse() throws SAXException, IOException, ParserConfigurationException {
+		final VmSnapshotStatus status = mockDeleteStatus();
+		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
+				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
+		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
+		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0a9e26b713aeec40e&SnapshotId.2=snap-0a9e26b713aeec40f",
+				"mock-server/aws/delete-snapshot-return-false.xml");
+		checkDeleteSnapshotsFail(status);
+	}
+
+	private void checkDeleteSnapshotsFail(final VmSnapshotStatus status)
+			throws SAXException, IOException, ParserConfigurationException {
+		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		Assertions.assertTrue(status.isFinished());
+		Assertions.assertTrue(status.isFailed());
+		Assertions.assertTrue(status.isFinishedRemote());
+		Assertions.assertEquals("deleting-snapshots", status.getPhase());
+		Assertions.assertEquals(VmAwsPluginResource.KEY + ":ami-deleting-snapshots-failed", status.getStatusText());
+		Assertions.assertEquals(2, status.getDone());
+		Assertions.assertEquals(3, status.getWorkload());
+		Assertions.assertEquals("ami-00000004", status.getSnapshotInternalId());
+	}
+
+	@Test
+	public void delete() throws SAXException, IOException, ParserConfigurationException {
+		final VmSnapshotStatus status = mockDeleteStatus();
+		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
+				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
+		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
+		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0a9e26b713aeec40e&SnapshotId.2=snap-0a9e26b713aeec40f",
+				"mock-server/aws/delete-snapshot.xml");
+		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		Assertions.assertTrue(status.isFinished());
+		Assertions.assertFalse(status.isFailed());
+		Assertions.assertTrue(status.isFinishedRemote());
+		Assertions.assertEquals("deleting-snapshots", status.getPhase());
+		Assertions.assertNull(status.getStatusText());
+		Assertions.assertEquals(3, status.getDone());
+		Assertions.assertEquals(3, status.getWorkload());
+		Assertions.assertEquals("ami-00000004", status.getSnapshotInternalId());
+	}
+
+	@Test
+	public void createTagsFail() throws SAXException, IOException, ParserConfigurationException {
 		final VmSnapshotStatus status = mockStatus();
 		mockAws("Action=CreateImage&NoReboot=false&InstanceId=i-12345678&Name=ligoj-snapshot/" + subscription + "/"
 				+ new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(status.getStart())
 				+ "&Description=Snapshot+created+from+Ligoj", "mock-server/aws/create-images.xml");
+		checkCreateTagsFail(status);
+	}
 
+	@Test
+	public void createTagsFailReturnFalse() throws Exception {
+		final VmSnapshotStatus status = mockStatus();
+		mockAws("Action=CreateImage&NoReboot=false&InstanceId=i-12345678&Name=ligoj-snapshot/" + subscription + "/"
+				+ new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(status.getStart())
+				+ "&Description=Snapshot+created+from+Ligoj", "mock-server/aws/create-images.xml");
+		mockAws("Action=CreateTags&ResourceId.1=ami-00000004&Tag.1.Key=ligoj:subscription&Tag.1.Value=" + subscription
+				+ "&Tag.2.Key=ligoj:audit&Tag.2.Value=ligoj-admin", "mock-server/aws/create-tags-return-false.xml");
+		checkCreateTagsFail(status);
+	}
+
+	private void checkCreateTagsFail(final VmSnapshotStatus status)
+			throws SAXException, IOException, ParserConfigurationException {
 		// Main call
 		resource.create(subscription, subscriptionResource.getParameters(subscription), status);
 
@@ -498,6 +643,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setStop(true);
 		status.setStart(DateUtils.newCalendar().getTime());
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
+		status.setOperation(SnapshotOperation.CREATE);
 
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 		Mockito.when(resource.snapshotResource.nextStep(ArgumentMatchers.eq(subscription),
