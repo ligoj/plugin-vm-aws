@@ -305,8 +305,7 @@ public class VmAwsSnapshotResource {
 		final String instanceId = parameters.get(VmAwsPluginResource.PARAMETER_INSTANCE_ID);
 		final String amiCreateDate = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(transientTask.getStart());
 		final String amiName = subscription + "/" + amiCreateDate;
-		final String amiResponse = resource.processEC2(subscription,
-				p -> "Action=CreateImage&NoReboot=" + (!transientTask.isStop()) + "&InstanceId=" + instanceId
+		final String amiResponse = resource.processEC2(parameters,"Action=CreateImage&NoReboot=" + (!transientTask.isStop()) + "&InstanceId=" + instanceId
 						+ "&Name=ligoj-snapshot/" + amiName + "&Description=Snapshot+created+from+Ligoj");
 		if (amiResponse == null) {
 			// AMI creation failed
