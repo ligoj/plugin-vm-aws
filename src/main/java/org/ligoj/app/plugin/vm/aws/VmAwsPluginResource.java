@@ -35,6 +35,7 @@ import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader;
 import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
+import org.ligoj.app.plugin.vm.model.VmExecution;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
 import org.ligoj.app.plugin.vm.model.VmStatus;
@@ -178,15 +179,14 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private Map<String, InstanceType> instanceTypes;
 
 	@Override
-	public AwsVm getVmDetails(final Map<String, String> parameters) throws Exception {
+	public AwsVm getVmDetails(final Map<String, String> parameters)
+			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
-		return this
-				.getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId,
-						this::toVmDetails)
-				.stream().findFirst()
-				.orElseThrow(() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
+		return getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId,
+				this::toVmDetails).stream().findFirst().orElseThrow(
+						() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
 	}
 
 	@Override
@@ -351,9 +351,15 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	@Override
-	public void execute(final int subscription, final VmOperation operation)
+	public void execute(final VmExecution execution)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(operation)).map(
+		final int subscription = execution.getSubscription().getId();
+		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
+		// Propagate the instance identifiers
+		execution.setVm(getVmDetails(parameters).getName() + "," + parameters.get(PARAMETER_INSTANCE_ID));
+
+		// Execute the operation
+		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(execution.getOperation())).map(
 				a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
 				.orElse(null);
 		if (!logTransitionState(response)) {
@@ -423,17 +429,41 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Return the tag "name" value or <code>null</code>
+	 * 
+	 * @param record
+	 *            The XML element.
+	 * @return The "name" tag text value of <code>null</code> when not found.
 	 */
 	protected String getName(final Element record) {
 		return getResourceTag(record, "name");
 	}
 
+	/**
+	 * Execute an EC2 query using the given subscription parameters.
+	 * 
+	 * @param subscription
+	 *            The subscription holding the parameters.
+	 * @param queryProvider
+	 *            The query string provider that would be placed into the AWS body.
+	 * 
+	 * @return The response. <code>null</code> when failed.
+	 */
 	protected String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
 		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
 		return processEC2(parameters, queryProvider.apply(parameters));
 	}
 
-	private String processEC2(final Map<String, String> parameters, final String query) {
+	/**
+	 * Execute an EC2 query using the given subscription parameters.
+	 * 
+	 * @param parameters
+	 *            The subscription's parameters.
+	 * @param query
+	 *            The query string that would be placed into the AWS body.
+	 * 
+	 * @return The response. <code>null</code> when failed.
+	 */
+	protected String processEC2(final Map<String, String> parameters, final String query) {
 		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder()
 				.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
 				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY)).path("/").service("ec2")

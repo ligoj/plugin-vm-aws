@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.ligoj.app.AbstractServerTest;
 import org.ligoj.app.MatcherUtil;
 import org.ligoj.app.api.SubscriptionStatusWithData;
+import org.ligoj.app.dao.SubscriptionRepository;
 import org.ligoj.app.model.Node;
 import org.ligoj.app.model.Parameter;
 import org.ligoj.app.model.ParameterValue;
@@ -29,6 +30,7 @@ import org.ligoj.app.model.Subscription;
 import org.ligoj.app.plugin.vm.Vm;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
+import org.ligoj.app.plugin.vm.model.VmExecution;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmSchedule;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
@@ -69,6 +71,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Autowired
 	private SubscriptionResource subscriptionResource;
+
+	@Autowired
+	private SubscriptionRepository subscriptionRepository;
 
 	protected int subscription;
 
@@ -131,9 +136,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void getVmDetails() throws Exception {
-		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
-		final AwsVm vm = mockAwsVm().getVmDetails(parameters);
-		checkVmDetails(vm);
+		checkVmDetails(mockAwsVm().getVmDetails(new HashMap<>(pvResource.getSubscriptionParameters(subscription))));
 	}
 
 	@Test
@@ -253,12 +256,14 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	public void executeError() {
+	public void executeError() throws IOException {
+		final VmAwsPluginResource resource = mockAws("ec2.eu-west-1.amazonaws.com",
+				"Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15", HttpStatus.SC_BAD_REQUEST,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(),
+						"UTF-8"));
+		addVmDetailsMock(resource);
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
-			mockAws("ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",
-					HttpStatus.SC_BAD_REQUEST, IOUtils.toString(
-							new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(), "UTF-8"))
-									.execute(subscription, VmOperation.SHUTDOWN);
+			resource.execute(newExecution(VmOperation.SHUTDOWN));
 		}).getMessage());
 	}
 
@@ -282,40 +287,25 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		execute(VmOperation.RESET, "Action=RebootInstances&InstanceId.1=i-12345678");
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test
-	public void executeUnamanagedAction() {
-		final VmAwsPluginResource resource = Mockito.spy(this.resource);
-		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
-		mockRequest.setSaveResponse(true);
-		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
-				ArgumentMatchers.any(Map.class));
+	public void executeUnamanagedAction() throws IOException {
+		final VmAwsPluginResource resource = mockAwsVm();
+		
+		// Details only is available
+		addVmDetailsMock(resource);
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
-			resource.execute(subscription, VmOperation.SUSPEND);
+			resource.execute(newExecution(VmOperation.SUSPEND));
 		}).getMessage());
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test
-	public void executeFailed() {
+	public void executeFailed() throws IOException {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
-		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
-		mockRequest.setSaveResponse(true);
-		Mockito.doReturn(mockRequest).when(resource)
-				.newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
-
-					@Override
-					public boolean matches(final AWS4SignatureQueryBuilder argument) {
-						final AWS4SignatureQuery query = argument.region("default").build();
-						return query.getHost().equals("ec2.eu-west-1.amazonaws.com") && query.getBody()
-								.equals("Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15");
-					}
-				}), ArgumentMatchers.any(Map.class));
-		httpServer.stubFor(
-				get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_INTERNAL_SERVER_ERROR)));
+		addQueryMock(resource, "ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",HttpStatus.SC_INTERNAL_SERVER_ERROR,"");
+		addVmDetailsMock(resource);
 		httpServer.start();
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
-			resource.execute(subscription, VmOperation.SHUTDOWN);
+			resource.execute(newExecution(VmOperation.SHUTDOWN));
 		}).getMessage());
 	}
 
@@ -380,15 +370,36 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	private void execute(final VmOperation operation, final String body) throws Exception {
-		mockAws("ec2.eu-west-1.amazonaws.com", body + "&Version=2016-11-15", HttpStatus.SC_OK,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstances.xml").getInputStream(), "UTF-8"))
-						.execute(subscription, operation);
+		final VmExecution execution = newExecution(operation);
+		final VmAwsPluginResource resource = mockAws("ec2.eu-west-1.amazonaws.com", body + "&Version=2016-11-15",
+				HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstances.xml").getInputStream(), "UTF-8"));
+		addVmDetailsMock(resource);
+		resource.execute(execution);
+		Assertions.assertEquals("INSTANCE_ON,i-12345678", execution.getVm());
+	}
+
+	private void addVmDetailsMock(final VmAwsPluginResource resource) throws IOException {
+		addQueryMock(resource, "ec2.eu-west-1.amazonaws.com",
+				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15",
+				HttpStatus.SC_OK, IOUtils.toString(
+						new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
+	}
+
+	private static int counterQuery = 0;
+
+	private VmAwsPluginResource mockAws(final String host, final String body, final int status, final String response) {
+		final VmAwsPluginResource resource = Mockito.spy(this.resource);
+		addQueryMock(resource, host, body, status, response);
+		httpServer.start();
+		return resource;
 	}
 
 	@SuppressWarnings("unchecked")
-	private VmAwsPluginResource mockAws(final String host, final String body, final int status, final String response) {
-		final VmAwsPluginResource resource = Mockito.spy(this.resource);
-		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
+	private void addQueryMock(final VmAwsPluginResource resource, final String host, final String body,
+			final int status, final String response) {
+		counterQuery++;
+		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL + "/" + counterQuery, null);
 		mockRequest.setSaveResponse(true);
 		Mockito.doReturn(mockRequest).when(resource)
 				.newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
@@ -401,9 +412,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 								&& (body == query.getBody() || query.getBody().equals(body));
 					}
 				}), ArgumentMatchers.any(Map.class));
-		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(status).withBody(response)));
-		httpServer.start();
-		return resource;
+		httpServer.stubFor(
+				get(urlEqualTo("/mock/" + counterQuery)).willReturn(aResponse().withStatus(status).withBody(response)));
 	}
 
 	private void checkVm(final AwsVm item) {
@@ -501,5 +511,12 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final VmSnapshotStatus task = new VmSnapshotStatus();
 		resource.completeStatus(task);
 		Mockito.verify(resource.snapshotResource, Mockito.times(1)).completeStatus(task);
+	}
+
+	private VmExecution newExecution(final VmOperation operation) {
+		final VmExecution execution = new VmExecution();
+		execution.setSubscription(subscriptionRepository.findOneExpected(subscription));
+		execution.setOperation(operation);
+		return execution;
 	}
 }
