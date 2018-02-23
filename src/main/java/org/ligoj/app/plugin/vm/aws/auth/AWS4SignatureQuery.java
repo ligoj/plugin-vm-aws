@@ -9,8 +9,6 @@ import lombok.NonNull;
 
 /**
  * Query used to sign AWS V4 API Query
- * 
- * @author alocquet
  */
 @Builder
 @Getter

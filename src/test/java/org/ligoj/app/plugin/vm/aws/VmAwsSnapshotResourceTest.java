@@ -709,6 +709,8 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 						return f.apply(parameters).equals(url);
 					}
 				}))).thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), "UTF-8"));
+		Mockito.when(resource.resource.processEC2(ArgumentMatchers.eq(parameters), ArgumentMatchers.eq(url)))
+				.thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), "UTF-8"));
 	}
 
 	/**
