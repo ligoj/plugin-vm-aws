@@ -26,6 +26,7 @@ import org.ligoj.app.plugin.vm.snapshot.Snapshot;
 import org.ligoj.app.plugin.vm.snapshot.VmSnapshotResource;
 import org.ligoj.app.plugin.vm.snapshot.VolumeSnapshot;
 import org.ligoj.app.resource.plugin.XmlUtils;
+import org.ligoj.app.resource.subscription.SubscriptionResource;
 import org.ligoj.bootstrap.core.resource.BusinessException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -72,6 +73,9 @@ public class VmAwsSnapshotResource {
 
 	@Autowired
 	protected VmAwsPluginResource resource;
+
+	@Autowired
+	protected SubscriptionResource subscriptionResource;
 
 	@Autowired
 	protected VmSnapshotResource snapshotResource;
@@ -121,9 +125,10 @@ public class VmAwsSnapshotResource {
 		if (task != null) {
 			Optional.ofNullable(findUnlistedAmi(snapshots, task)).filter(s -> matches(s, criteria))
 					.ifPresent(s -> snapshots.add(0, s));
-			
+
 			// Update the operation type from the task
-			snapshots.stream().filter(s-> StringUtils.equals(task.getSnapshotInternalId(),s.getId())).forEach(s->s.setOperation(task.getOperation()));
+			snapshots.stream().filter(s -> StringUtils.equals(task.getSnapshotInternalId(), s.getId()))
+					.forEach(s -> s.setOperation(task.getOperation()));
 		}
 		return snapshots;
 	}
@@ -287,25 +292,23 @@ public class VmAwsSnapshotResource {
 	 * Create a new AMI from the given subscription. First, the name is fixed and based from the subscription and the
 	 * current date, then AMI is created, then tagged.
 	 * 
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param parameters
-	 *            the subscription parameters.
-	 * @param transientTask
-	 *            A transient instance of the related task, and also linked to the given subscription. Note it is a
-	 *            read-only view.
+	 * @param task
+	 *            A transient instance of the related task, and also linked to a subscription. Note it is a read-only
+	 *            view.
 	 */
-	public void create(final int subscription, final Map<String, String> parameters,
-			final VmSnapshotStatus transientTask) throws SAXException, IOException, ParserConfigurationException {
+	public void create(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
+		final int subscription = task.getLocked().getId();
+		final Map<String, String> parameters = subscriptionResource.getParametersNoCheck(subscription);
 		// Create the AMI
 		snapshotResource.nextStep(subscription, s -> {
 			s.setPhase("creating-ami");
 			s.setWorkload(3);
 		});
 		final String instanceId = parameters.get(VmAwsPluginResource.PARAMETER_INSTANCE_ID);
-		final String amiCreateDate = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(transientTask.getStart());
+		final String amiCreateDate = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(task.getStart());
 		final String amiName = subscription + "/" + amiCreateDate;
-		final String amiResponse = resource.processEC2(parameters,"Action=CreateImage&NoReboot=" + (!transientTask.isStop()) + "&InstanceId=" + instanceId
+		final String amiResponse = resource.processEC2(parameters,
+				"Action=CreateImage&NoReboot=" + (!task.isStop()) + "&InstanceId=" + instanceId
 						+ "&Name=ligoj-snapshot/" + amiName + "&Description=Snapshot+created+from+Ligoj");
 		if (amiResponse == null) {
 			// AMI creation failed
@@ -327,7 +330,7 @@ public class VmAwsSnapshotResource {
 		});
 		if (!isReturnTrue(resource.processEC2(subscription,
 				p -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION + "&Tag.1.Value="
-						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value=" + transientTask.getAuthor()))) {
+						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value=" + task.getAuthor()))) {
 			snapshotResource.endTask(subscription, true, s -> {
 				s.setStatusText(VmAwsPluginResource.KEY + ":ami-tag-failed");
 				s.setFinishedRemote(true);
@@ -359,15 +362,28 @@ public class VmAwsSnapshotResource {
 		return response != null && BooleanUtils.toBoolean(xml.getTagText(xml.parse(response), "return"));
 	}
 
-	public void delete(final int subscription, final Map<String, String> parameters,
-			final VmSnapshotStatus transientTask) throws SAXException, IOException, ParserConfigurationException {
+	/**
+	 * Delete a snapshot.
+	 * 
+	 * @param task
+	 *            A transient instance of the related task, and also linked to a subscription. Note it is a read-only
+	 *            view.
+	 * @throws ParserConfigurationException
+	 *             XML parsing failed.
+	 * @throws IOException
+	 *             XML reading failed by the parser.
+	 * @throws SAXException
+	 *             XML processing failed.
+	 */
+	public void delete(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
+		final int subscription = task.getLocked().getId();
 		// Initiate the task, validate the AMI to delete
 		snapshotResource.nextStep(subscription, s -> {
 			s.setPhase("searching-ami");
 			s.setWorkload(3);
 		});
 
-		final String amiId = transientTask.getSnapshotInternalId();
+		final String amiId = task.getSnapshotInternalId();
 		final Snapshot ami = findById(subscription, amiId);
 
 		if (ami == null) {

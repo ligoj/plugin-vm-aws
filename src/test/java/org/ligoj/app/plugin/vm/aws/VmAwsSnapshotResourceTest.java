@@ -451,7 +451,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 				+ "&Tag.2.Key=ligoj:audit&Tag.2.Value=ligoj-admin", "mock-server/aws/create-tags.xml");
 
 		// Main call
-		resource.create(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.create(status);
 		checkCreate(status);
 	}
 
@@ -466,7 +466,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 				+ "&Tag.2.Key=ligoj:audit&Tag.2.Value=ligoj-admin", "mock-server/aws/create-tags.xml");
 
 		// Main call
-		resource.create(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.create(status);
 		checkCreate(status);
 	}
 
@@ -484,7 +484,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		final VmSnapshotStatus status = mockStatus();
 
 		// Main call
-		resource.create(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.create(status);
 
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertTrue(status.isFailed());
@@ -501,7 +501,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		final VmSnapshotStatus status = mockDeleteStatus();
 
 		// Main call
-		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.delete(status);
 
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertTrue(status.isFailed());
@@ -539,7 +539,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	private void checkDeregisteringFail(final VmSnapshotStatus status)
 			throws SAXException, IOException, ParserConfigurationException {
-		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.delete(status);
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertTrue(status.isFailed());
 		Assertions.assertTrue(status.isFinishedRemote());
@@ -572,7 +572,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	private void checkDeleteSnapshotsFail(final VmSnapshotStatus status)
 			throws SAXException, IOException, ParserConfigurationException {
-		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.delete(status);
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertTrue(status.isFailed());
 		Assertions.assertTrue(status.isFinishedRemote());
@@ -591,7 +591,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
 		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0a9e26b713aeec40e&SnapshotId.2=snap-0a9e26b713aeec40f",
 				"mock-server/aws/delete-snapshot.xml");
-		resource.delete(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.delete(status);
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertFalse(status.isFailed());
 		Assertions.assertTrue(status.isFinishedRemote());
@@ -625,7 +625,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	private void checkCreateTagsFail(final VmSnapshotStatus status)
 			throws SAXException, IOException, ParserConfigurationException {
 		// Main call
-		resource.create(subscription, subscriptionResource.getParameters(subscription), status);
+		resource.create(status);
 
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertTrue(status.isFailed());

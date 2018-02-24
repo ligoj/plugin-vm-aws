@@ -290,7 +290,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void executeUnamanagedAction() throws IOException {
 		final VmAwsPluginResource resource = mockAwsVm();
-		
+
 		// Details only is available
 		addVmDetailsMock(resource);
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
@@ -301,7 +301,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void executeFailed() throws IOException {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
-		addQueryMock(resource, "ec2.eu-west-1.amazonaws.com", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",HttpStatus.SC_INTERNAL_SERVER_ERROR,"");
+		addQueryMock(resource, "ec2.eu-west-1.amazonaws.com",
+				"Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15", HttpStatus.SC_INTERNAL_SERVER_ERROR,
+				"");
 		addVmDetailsMock(resource);
 		httpServer.start();
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
@@ -476,10 +478,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final VmAwsPluginResource resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
 		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
-		final Map<String, String> parameters = new HashMap<>();
 		final VmSnapshotStatus transientTask = new VmSnapshotStatus();
-		resource.snapshot(subscription, parameters, transientTask);
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).create(subscription, parameters, transientTask);
+		resource.snapshot(transientTask);
+		Mockito.verify(resource.snapshotResource, Mockito.times(1)).create(transientTask);
 	}
 
 	@Test
@@ -487,10 +488,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final VmAwsPluginResource resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
 		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
-		final Map<String, String> parameters = new HashMap<>();
 		final VmSnapshotStatus transientTask = new VmSnapshotStatus();
-		resource.delete(subscription, parameters, transientTask);
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).delete(subscription, parameters, transientTask);
+		resource.delete(transientTask);
+		Mockito.verify(resource.snapshotResource, Mockito.times(1)).delete(transientTask);
 	}
 
 	@Test
