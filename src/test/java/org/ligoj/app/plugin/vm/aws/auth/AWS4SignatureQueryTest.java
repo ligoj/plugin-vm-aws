@@ -21,35 +21,35 @@ public class AWS4SignatureQueryTest {
 	@Test
 	public void builderNoPath() {
 		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().host("localhost").build();
+			AWS4SignatureQuery.builder().build();
 		});
 	}
 
 	@Test
 	public void builderNoService() {
 		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().host("localhost").path("/").build();
+			AWS4SignatureQuery.builder().path("/").build();
 		});
 	}
 
 	@Test
 	public void builderNoRegion() {
 		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().host("localhost").path("/").service("ec2").build();
+			AWS4SignatureQuery.builder().path("/").service("ec2").build();
 		});
 	}
 
 	@Test
 	public void builderNoAccessKey() {
 		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().host("localhost").path("/").service("ec2").region("eu-west-1").build();
+			AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").build();
 		});
 	}
 
 	@Test
 	public void builderNoSecretKey() {
 		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().host("localhost").path("/").service("ec2").region("eu-west-1").accessKey("--access-key--").build();
+			AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").accessKey("--access-key--").build();
 		});
 	}
 
@@ -76,7 +76,7 @@ public class AWS4SignatureQueryTest {
 	}
 
 	private AWS4SignatureQueryBuilder builderCommon(AWS4SignatureQueryBuilder builderParam) {
-		AWS4SignatureQueryBuilder builder = builderParam.host("localhost");
+		AWS4SignatureQueryBuilder builder = builderParam;
 		builder.toString();
 		builder = builder.path("/");
 		builder.toString();

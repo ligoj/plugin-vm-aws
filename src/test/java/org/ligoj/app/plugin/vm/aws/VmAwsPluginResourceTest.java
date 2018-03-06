@@ -2,6 +2,7 @@ package org.ligoj.app.plugin.vm.aws;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 
 import java.io.IOException;
@@ -41,6 +42,7 @@ import org.ligoj.app.resource.subscription.SubscriptionResource;
 import org.ligoj.bootstrap.core.SpringUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
 import org.ligoj.bootstrap.core.validation.ValidationJsonException;
+import org.ligoj.bootstrap.resource.system.configuration.ConfigurationResource;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -77,6 +79,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	protected int subscription;
 
+	@Autowired
+	private ConfigurationResource configuration;
+
 	@BeforeEach
 	public void prepareData() throws Exception {
 		// Only with Spring context
@@ -98,6 +103,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 			}
 		};
 		applicationContext.getAutowireCapableBeanFactory().autowireBean(resource);
+		configuration.delete("service:vm:aws:region");
 		resource.afterPropertiesSet();
 	}
 
@@ -114,7 +120,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void linkFailed() {
 		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
-			mockAws("ec2.eu-west-1.amazonaws.com",
+			mockEc2("eu-west-1",
 					"Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678",
 					HttpStatus.SC_OK, IOUtils.toString(
 							new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
@@ -127,10 +133,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
 		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
-			mockAws("ec2.eu-west-1.amazonaws.com", "&Filter.1.Name=instance-id&Filter.1.Value.1=0&Version=2016-11-15",
-					HttpStatus.SC_OK, IOUtils.toString(
-							new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
-									.getVmDetails(parameters);
+			mockEc2("eu-west-1", "&Filter.1.Name=instance-id&Filter.1.Value.1=0&Version=2016-11-15", HttpStatus.SC_OK,
+					IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(),
+							"UTF-8")).getVmDetails(parameters);
 		}), VmAwsPluginResource.PARAMETER_INSTANCE_ID, "aws-instance-id");
 	}
 
@@ -142,7 +147,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void getVmDetailsNoPublic() throws Exception {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
-		final AwsVm vm = mockAws("ec2.eu-west-1.amazonaws.com",
+		final AwsVm vm = mockEc2("eu-west-1",
 				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15",
 				HttpStatus.SC_OK,
 				IOUtils.toString(
@@ -160,7 +165,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void getVmDetailsTerminatedNoTag() throws Exception {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getSubscriptionParameters(subscription));
-		final AwsVm vm = mockAws("ec2.eu-west-1.amazonaws.com",
+		final AwsVm vm = mockEc2("eu-west-1",
 				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15",
 				HttpStatus.SC_OK,
 				IOUtils.toString(
@@ -195,7 +200,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void checkStatus() throws Exception {
-		Assertions.assertTrue(mockAws("s3-eu-west-1.amazonaws.com", null, HttpStatus.SC_OK,
+		Assertions.assertTrue(mockAws("s3", "eu-west-1", null, HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(),
 						"UTF-8")).checkStatus("service:vm:aws:test",
 								pvResource.getNodeParameters("service:vm:aws:test")));
@@ -209,8 +214,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrId() throws Exception {
-		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com",
-				"Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
+				HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
 		Assertions.assertEquals(6, projects.size());
@@ -219,8 +224,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdNoName() throws Exception {
-		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com",
-				"Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
+				HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000006");
 		Assertions.assertEquals(1, projects.size());
@@ -231,8 +236,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdById() throws Exception {
-		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com",
-				"Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
+				HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "i-00000005");
 		Assertions.assertEquals(1, projects.size());
@@ -243,8 +248,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdEmpty() throws Exception {
-		final List<AwsVm> projects = mockAws("ec2.eu-west-1.amazonaws.com",
-				"Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
+				HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
 						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
 		Assertions.assertEquals(0, projects.size());
@@ -257,7 +262,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void executeError() throws IOException {
-		final VmAwsPluginResource resource = mockAws("ec2.eu-west-1.amazonaws.com",
+		final VmAwsPluginResource resource = mockEc2("eu-west-1",
 				"Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15", HttpStatus.SC_BAD_REQUEST,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstancesError.xml").getInputStream(),
 						"UTF-8"));
@@ -301,9 +306,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void executeFailed() throws IOException {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
-		addQueryMock(resource, "ec2.eu-west-1.amazonaws.com",
-				"Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15", HttpStatus.SC_INTERNAL_SERVER_ERROR,
-				"");
+		addQueryMock(resource, "ec2", "eu-west-1", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",
+				HttpStatus.SC_INTERNAL_SERVER_ERROR, "");
 		addVmDetailsMock(resource);
 		httpServer.start();
 		Assertions.assertEquals("vm-operation-execute", Assertions.assertThrows(BusinessException.class, () -> {
@@ -312,48 +316,71 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	/**
-	 * prepare call to AWS
-	 * 
-	 * @throws Exception
-	 *             exception
+	 * prepare call to AWS using default region.
 	 */
 	@Test
 	public void newRequest() {
-		final CurlRequest request = resource.newRequest(
-				AWS4SignatureQuery.builder().host("mock").path("/").body("body").service("s3"), subscription);
+		final CurlRequest request = resource
+				.newRequest(AWS4SignatureQuery.builder().path("/").body("body").service("s3"), subscription);
 		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
-		Assertions.assertEquals("https://mock/", request.getUrl());
+		Assertions.assertEquals("https://s3-eu-west-1.amazonaws.com/", request.getUrl());
+		Assertions.assertEquals("POST", request.getMethod());
+		Assertions.assertEquals("body", request.getContent());
+	}
+
+	/**
+	 * prepare call to AWS with a custom region configured with configuration API.
+	 */
+	@Test
+	public void newRequestCustomRegion() {
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
+		parameters.remove(VmAwsPluginResource.PARAMETER_REGION);
+		configuration.saveOrUpdate("service:vm:aws:region", "middle");
+		final CurlRequest request = resource
+				.newRequest(AWS4SignatureQuery.builder().path("/").body("body").service("s3"), parameters);
+		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
+		Assertions.assertEquals("https://s3-middle.amazonaws.com/", request.getUrl());
+		Assertions.assertEquals("POST", request.getMethod());
+		Assertions.assertEquals("body", request.getContent());
+	}
+
+	/**
+	 * prepare call to AWS with a custom region configured with subscription parameter.
+	 */
+	@Test
+	public void newRequestCustomRegion2() {
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
+		parameters.put(VmAwsPluginResource.PARAMETER_REGION, "middle");
+		final CurlRequest request = resource
+				.newRequest(AWS4SignatureQuery.builder().path("/").body("body").service("s3"), parameters);
+		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
+		Assertions.assertEquals("https://s3-middle.amazonaws.com/", request.getUrl());
 		Assertions.assertEquals("POST", request.getMethod());
 		Assertions.assertEquals("body", request.getContent());
 	}
 
 	private VmAwsPluginResource mockAwsVm() throws IOException {
-		return mockAws("ec2.eu-west-1.amazonaws.com",
+		return mockEc2("eu-west-1",
 				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15",
 				HttpStatus.SC_OK, IOUtils.toString(
 						new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test
 	public void checkSubscriptionStatusDown() {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
 		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
-		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
-		mockRequest.setSaveResponse(true);
-		Mockito.doReturn(mockRequest).when(resource)
-				.newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
+		Mockito.doReturn(MOCK_URL + "/" + counterQuery).when(resource)
+				.toHost(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
 
 					@Override
-					public boolean matches(final AWS4SignatureQueryBuilder argument) {
-						final AWS4SignatureQuery query = argument.region("any").accessKey("default")
-								.secretKey("default").build();
-						return query.getHost().equals("ec2.eu-west-1.amazonaws.com");
+					public boolean matches(final AWS4SignatureQuery query) {
+						return query.getRegion().equals("eu-west-1") && query.getService().equals("s3");
 					}
-				}), ArgumentMatchers.any(Map.class));
-		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(404).withBody("")));
+				}));
+		httpServer.stubFor(post(urlEqualTo("/mock")).willReturn(aResponse().withStatus(404).withBody("")));
 		httpServer.start();
 
 		MatcherUtil.assertThrows(Assertions.assertThrows(ValidationJsonException.class, () -> {
@@ -367,14 +394,36 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	@Test
+	public void validateAccessRegionConfiguration() throws Exception {
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
+		VmAwsPluginResource resource = new VmAwsPluginResource();
+		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
+		resource = Mockito.spy(resource);
+		parameters.remove("service:vm:aws:region");
+		resource.configuration.saveOrUpdate("service:vm:aws:region", "middle");
+		Mockito.doReturn(MOCK_URL + "/" + counterQuery).when(resource)
+				.toHost(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
+
+					@Override
+					public boolean matches(final AWS4SignatureQuery query) {
+						return query.getRegion().equals("middle") && query.getService().equals("s3");
+					}
+
+				}));
+
+		httpServer.stubFor(post(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_OK)));
+		httpServer.start();
+		resource.validateAccess(parameters);
+	}
+
+	@Test
 	public void validateAccessDown() throws Exception {
 		Assertions.assertFalse(validateAccess(HttpStatus.SC_FORBIDDEN));
 	}
 
 	private void execute(final VmOperation operation, final String body) throws Exception {
 		final VmExecution execution = newExecution(operation);
-		final VmAwsPluginResource resource = mockAws("ec2.eu-west-1.amazonaws.com", body + "&Version=2016-11-15",
-				HttpStatus.SC_OK,
+		final VmAwsPluginResource resource = mockEc2("eu-west-1", body + "&Version=2016-11-15", HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/stopInstances.xml").getInputStream(), "UTF-8"));
 		addVmDetailsMock(resource);
 		resource.execute(execution);
@@ -382,7 +431,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	private void addVmDetailsMock(final VmAwsPluginResource resource) throws IOException {
-		addQueryMock(resource, "ec2.eu-west-1.amazonaws.com",
+		addQueryMock(resource, "ec2", "eu-west-1",
 				"Action=DescribeInstances&Filter.1.Name=instance-id&Filter.1.Value.1=i-12345678&Version=2016-11-15",
 				HttpStatus.SC_OK, IOUtils.toString(
 						new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
@@ -390,32 +439,33 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	private static int counterQuery = 0;
 
-	private VmAwsPluginResource mockAws(final String host, final String body, final int status, final String response) {
+	private VmAwsPluginResource mockEc2(final String region, final String body, final int status,
+			final String response) {
+		return mockAws("ec2", region, body, status, response);
+	}
+
+	private VmAwsPluginResource mockAws(final String service, final String region, final String body, final int status,
+			final String response) {
 		final VmAwsPluginResource resource = Mockito.spy(this.resource);
-		addQueryMock(resource, host, body, status, response);
+		addQueryMock(resource, service, region, body, status, response);
 		httpServer.start();
 		return resource;
 	}
 
-	@SuppressWarnings("unchecked")
-	private void addQueryMock(final VmAwsPluginResource resource, final String host, final String body,
-			final int status, final String response) {
+	private void addQueryMock(final VmAwsPluginResource resource, final String service, final String region,
+			final String body, final int status, final String response) {
 		counterQuery++;
-		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL + "/" + counterQuery, null);
-		mockRequest.setSaveResponse(true);
-		Mockito.doReturn(mockRequest).when(resource)
-				.newRequest(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQueryBuilder>() {
+		Mockito.doReturn(MOCK_URL + "/" + counterQuery).when(resource)
+				.toHost(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
 
 					@Override
-					public boolean matches(final AWS4SignatureQueryBuilder argument) {
-						final AWS4SignatureQuery query = argument.region("any").accessKey("default")
-								.secretKey("default").build();
-						return query.getHost().equals(host)
+					public boolean matches(final AWS4SignatureQuery query) {
+						return query.getService().equals(service) && query.getRegion().equals(region)
 								&& (body == query.getBody() || query.getBody().equals(body));
 					}
-				}), ArgumentMatchers.any(Map.class));
-		httpServer.stubFor(
-				get(urlEqualTo("/mock/" + counterQuery)).willReturn(aResponse().withStatus(status).withBody(response)));
+				}));
+		httpServer.stubFor(post(urlEqualTo("/mock/" + counterQuery + "/"))
+				.willReturn(aResponse().withStatus(status).withBody(response)));
 	}
 
 	private void checkVm(final AwsVm item) {
@@ -447,18 +497,19 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	}
 
 	private boolean validateAccess(int status) throws Exception {
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		VmAwsPluginResource resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
 		resource = Mockito.spy(resource);
 		final CurlRequest mockRequest = new CurlRequest("GET", MOCK_URL, null);
 		mockRequest.setSaveResponse(true);
-		Mockito.doReturn("any").when(resource).getRegion();
+		parameters.put("service:vm:aws:region", "any");
 		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
 				ArgumentMatchers.anyMap());
 
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(status)));
 		httpServer.start();
-		return resource.validateAccess(pvResource.getNodeParameters("service:vm:aws:test"));
+		return resource.validateAccess(parameters);
 	}
 
 	/**

@@ -15,11 +15,6 @@ import lombok.NonNull;
 public class AWS4SignatureQuery {
 
 	/**
-	 * query host
-	 */
-	@NonNull
-	private String host;
-	/**
 	 * query path
 	 */
 	@NonNull
@@ -31,7 +26,7 @@ public class AWS4SignatureQuery {
 	@NonNull
 	@Builder.Default
 	private String method = "POST";
-	
+
 	/**
 	 * AWS service name : s3, ec2, ...
 	 */
@@ -77,6 +72,15 @@ public class AWS4SignatureQuery {
 		 * query parameters
 		 */
 		private Map<String, String> queryParameters = new HashMap<>();
+	}
+
+	/**
+	 * Return the corresponding host.
+	 * 
+	 * @return The corresponding host.
+	 */
+	public String getHost() {
+		return getService() + (getService().equals("s3") ? "-" : ".") + getRegion() + ".amazonaws.com";
 	}
 
 }

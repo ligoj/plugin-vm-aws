@@ -97,6 +97,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	public static final String PARAMETER_ACCOUNT = KEY + ":account";
 
 	/**
+	 * AWS Region API Id.
+	 */
+	public static final String PARAMETER_REGION = KEY + ":region";
+
+	/**
 	 * The EC2 identifier.
 	 */
 	public static final String PARAMETER_INSTANCE_ID = KEY + ":id";
@@ -154,7 +159,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private SecurityHelper securityHelper;
 
 	@Autowired
-	private ConfigurationResource configuration;
+	protected ConfigurationResource configuration;
 
 	@Autowired
 	private NodeRepository nodeRepository;
@@ -387,10 +392,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Return the default region for API call by this plug-in.
+	 * Return the region from the subscription's parameters or the the default one.
 	 */
-	protected String getRegion() {
-		return configuration.get(CONF_REGION, DEFAULT_REGION);
+	protected String getRegion(final Map<String, String> parameters) {
+		return Optional.ofNullable(parameters.get(PARAMETER_REGION))
+				.orElseGet(() -> configuration.get(CONF_REGION, DEFAULT_REGION));
 	}
 
 	/**
@@ -403,9 +409,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	protected boolean validateAccess(final Map<String, String> parameters) {
 		// Call S3 ls service
 		// TODO Use EC2 instead of S3
-		final AWS4SignatureQueryBuilder signatureQueryBuilder = AWS4SignatureQuery.builder().method("GET").service("s3")
-				.host("s3-" + getRegion() + ".amazonaws.com").path("/");
-		return new CurlProcessor().process(newRequest(signatureQueryBuilder, parameters));
+		return new CurlProcessor()
+				.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3").path("/"), parameters));
 	}
 
 	@Override
@@ -464,10 +469,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final Map<String, String> parameters, final String query) {
-		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder()
-				.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
-				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY)).path("/").service("ec2")
-				.host("ec2." + getRegion() + ".amazonaws.com")
+		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().path("/").service("ec2")
 				.body(query + "&Version=" + VmAwsPluginResource.API_VERSION);
 		final CurlRequest request = newRequest(signatureQuery, parameters);
 		new CurlProcessor().process(request);
@@ -502,16 +504,21 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 */
 	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder signatureBuilder,
 			final Map<String, String> parameters) {
-		final AWS4SignatureQuery signatureQuery = signatureBuilder
+		final AWS4SignatureQuery query = signatureBuilder
 				.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
-				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY)).region(getRegion()).build();
-		final String authorization = signer.computeSignature(signatureQuery);
-		final CurlRequest request = new CurlRequest(signatureQuery.getMethod(),
-				"https://" + signatureQuery.getHost() + signatureQuery.getPath(), signatureQuery.getBody());
-		request.getHeaders().putAll(signatureQuery.getHeaders());
+				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY))
+				.region(getRegion(parameters)).build();
+		final String authorization = signer.computeSignature(query);
+		final CurlRequest request = new CurlRequest(query.getMethod(), toHost(query) + query.getPath(),
+				query.getBody());
+		request.getHeaders().putAll(query.getHeaders());
 		request.getHeaders().put("Authorization", authorization);
 		request.setSaveResponse(true);
 		return request;
+	}
+
+	protected String toHost(final AWS4SignatureQuery query) {
+		return "https://" + query.getHost();
 	}
 
 	@Override

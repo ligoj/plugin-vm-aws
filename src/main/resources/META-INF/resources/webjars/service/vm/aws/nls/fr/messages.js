@@ -3,6 +3,7 @@ define({
 	'service:vm:aws:password' : 'Mot de passe',
 	'service:vm:aws:account': 'Compte',
 	'service:vm:aws:id' : 'Identifiant d\'instance',
+	'service:vm:aws:region' : 'Région',
 	'service:vm:aws:resources' : 'Ressources',
 	'service:vm:aws:console': 'Console AWS',
 	'service:vm:aws:az': 'Zone de disponibilité',
