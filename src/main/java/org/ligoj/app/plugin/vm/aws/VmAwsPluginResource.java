@@ -24,6 +24,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 
 import org.apache.commons.lang3.ObjectUtils;
@@ -309,12 +311,23 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Fill the given VM networks with its network details.
 	 */
-	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks) {
+	protected void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks) {
 		// Private IP (optional)
 		addNetworkDetails(networkNode, networks, "private", "privateIpAddress", "privateDnsName");
 
 		// Public IP (optional)
 		addNetworkDetails(networkNode, networks, "public", "ipAddress", "dnsName");
+
+		// IPv6 (optional)
+		final XPath xPath = xml.xpathFactory.newXPath();
+		try {
+			final NodeList ipv6 = (NodeList) xPath.evaluate("networkInterfaceSet/item/ipv6AddressesSet", networkNode,
+					XPathConstants.NODESET);
+			IntStream.range(0, ipv6.getLength()).mapToObj(ipv6::item)
+					.forEach(i -> addNetworkDetails((Element) i, networks, "public", "item", "dnsName"));
+		} catch (final XPathExpressionException e) {
+			log.warn("Unable to evaluate IPv6", e);
+		}
 	}
 
 	/**
@@ -323,7 +336,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks, final String type,
 			final String ipAttr, final String dnsAttr) {
 		// When IP is available, add the corresponding network
-		Optional.ofNullable(xml.getTagText(networkNode, ipAttr))
+		// TODO API 2.2.3+, remove useless StringUtils::trimToNull
+		Optional.ofNullable(StringUtils.trimToNull(xml.getTagText(networkNode, ipAttr)))
 				.ifPresent(i -> networks.add(new VmNetwork(type, i, xml.getTagText(networkNode, dnsAttr))));
 	}
 

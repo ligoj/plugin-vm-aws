@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -143,6 +144,11 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	@Test
 	public void getVmDetails() throws Exception {
 		checkVmDetails(mockAwsVm().getVmDetails(new HashMap<>(pvResource.getSubscriptionParameters(subscription))));
+	}
+
+	@Test
+	public void addNetworkDetailsNullNode() throws IOException {
+		mockAwsVm().addNetworkDetails(null, Collections.emptyList());
 	}
 
 	@Test
@@ -522,13 +528,17 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		checkVm(item);
 
 		// Check network
-		Assertions.assertEquals(2, item.getNetworks().size());
+		Assertions.assertEquals(3, item.getNetworks().size());
 		Assertions.assertEquals("10.0.0.236", item.getNetworks().get(0).getIp());
 		Assertions.assertEquals("private", item.getNetworks().get(0).getType());
 		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", item.getNetworks().get(0).getDns());
 		Assertions.assertEquals("1.2.3.4", item.getNetworks().get(1).getIp());
 		Assertions.assertEquals("public", item.getNetworks().get(1).getType());
 		Assertions.assertEquals("ec2-1.2.3.4.eu-west-1.compute.amazonaws.com", item.getNetworks().get(1).getDns());
+
+		// IPv6
+		Assertions.assertEquals("public", item.getNetworks().get(2).getType());
+		Assertions.assertEquals("0000:0000:0000:0000:0000:0000:0000:0000", item.getNetworks().get(2).getIp());
 		Assertions.assertEquals("eu-west-1b", item.getAz());
 	}
 

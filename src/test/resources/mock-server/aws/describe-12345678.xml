@@ -28,7 +28,54 @@
                     <dnsName>ec2-1.2.3.4.eu-west-1.compute.amazonaws.com</dnsName>
                     <privateIpAddress>10.0.0.236</privateIpAddress>
                     <ipAddress>1.2.3.4</ipAddress>
-				</item>
+                    <networkInterfaceSet>
+                        <item>
+                            <networkInterfaceId>eni-00000000000000000</networkInterfaceId>
+                            <subnetId>subnet-00000000000000000</subnetId>
+                            <vpcId>vpc-0a3f85360949eb311</vpcId>
+                            <description>Primary network interface</description>
+                            <ownerId>000000000000</ownerId>
+                            <status>in-use</status>
+                            <macAddress>00:00:00:00:00:00</macAddress>
+                            <privateIpAddress>10.0.0.236</privateIpAddress>
+                            <sourceDestCheck>true</sourceDestCheck>
+                            <groupSet>
+                                <item>
+                                    <groupId>sg-00000000000000000</groupId>
+                                    <groupName>sg-name</groupName>
+                                </item>
+                            </groupSet>
+                            <attachment>
+                                <attachmentId>eni-attach-00000000000000000</attachmentId>
+                                <deviceIndex>0</deviceIndex>
+                                <status>attached</status>
+                                <attachTime>2018-03-05T15:30:05.000Z</attachTime>
+                                <deleteOnTermination>true</deleteOnTermination>
+                            </attachment>
+                            <association>
+                                <publicIp>1.2.3.4</publicIp>
+                                <publicDnsName/>
+                                <ipOwnerId>000000000000</ipOwnerId>
+                            </association>
+                            <privateIpAddressesSet>
+                                <item>
+                                    <privateIpAddress>10.0.0.236</privateIpAddress>
+                                    <primary>true</primary>
+                                    <association>
+                                    <publicIp>1.2.3.4</publicIp>
+                                    <publicDnsName/>
+                                    <ipOwnerId>000000000000</ipOwnerId>
+                                    </association>
+                                </item>
+                            </privateIpAddressesSet>
+                            <ipv6AddressesSet>
+                                <item>
+                                    <ipv6Address>0000:0000:0000:0000:0000:0000:0000:0000</ipv6Address>
+                                </item>
+                            </ipv6AddressesSet>
+                        </item>
+                    </networkInterfaceSet>
+ 				</item>
 			</instancesSet>
 		</item>
 	</reservationSet>
