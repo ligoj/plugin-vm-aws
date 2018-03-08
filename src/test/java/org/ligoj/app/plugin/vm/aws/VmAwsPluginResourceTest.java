@@ -355,8 +355,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	 */
 	@Test
 	public void newRequest() {
-		final CurlRequest request = resource
-				.newRequest(AWS4SignatureQuery.builder().path("/").body("body").service("s3"), subscription);
+		final CurlRequest request = resource.newRequest(
+				AWS4SignatureQuery.builder().path("/").body("body").service("s3"),
+				subscriptionResource.getParameters(subscription));
 		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
 		Assertions.assertEquals("https://s3-eu-west-1.amazonaws.com/", request.getUrl());
 		Assertions.assertEquals("POST", request.getMethod());

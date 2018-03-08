@@ -186,8 +186,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private Map<String, InstanceType> instanceTypes;
 
 	@Override
-	public AwsVm getVmDetails(final Map<String, String> parameters)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+	public AwsVm getVmDetails(final Map<String, String> parameters) throws Exception {
 		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
@@ -211,13 +210,14 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @param uriInfo
 	 *            Additional subscription parameters.
 	 * @return virtual machines.
+	 * @throws Exception
+	 *             When AWS content cannot be read.
 	 */
 	@GET
 	@Path("{node:service:.+}/{criteria}")
 	@Consumes(MediaType.APPLICATION_JSON)
 	public List<AwsVm> findAllByNameOrId(@PathParam("node") final String node,
-			@PathParam("criteria") final String criteria, @Context final UriInfo uriInfo)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+			@PathParam("criteria") final String criteria, @Context final UriInfo uriInfo) throws Exception {
 		// Check the node exists
 		if (nodeRepository.findOneVisible(node, securityHelper.getLogin()) == null) {
 			return Collections.emptyList();
@@ -238,7 +238,6 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Get all instances visible for given AWS access key.
 	 *
-	 *
 	 * @param parameters
 	 *            Subscription parameters.
 	 * @param filter
@@ -247,10 +246,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @param parser
 	 *            The mapper from {@link Element} to {@link AwsVm}.
 	 * @return The matching instances.
+	 * @throws Exception
+	 *             When AWS content cannot be read.
 	 */
 	private List<AwsVm> getDescribeInstances(final Map<String, String> parameters, final String filter,
-			final Function<Element, AwsVm> parser)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+			final Function<Element, AwsVm> parser) throws Exception {
 		String query = "Action=DescribeInstances";
 		if (StringUtils.isNotEmpty(filter)) {
 			query += filter;
@@ -263,8 +263,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Build described beans from a XML result.
 	 */
-	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser)
-			throws SAXException, IOException, ParserConfigurationException, XPathExpressionException {
+	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser) throws Exception {
 		final NodeList items = xml.getXpath(vmAsXml,
 				"/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> parser.apply((Element) n))
@@ -364,8 +363,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	@Override
-	public void execute(final VmExecution execution)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+	public void execute(final VmExecution execution) throws Exception {
 		final int subscription = execution.getSubscription().getId();
 		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
 		// Propagate the instance identifiers
@@ -401,8 +399,12 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Return the region from the subscription's parameters or the the default one.
+	 * 
+	 * @param parameters
+	 *            The subscription parameters.
+	 * @return The right region to use. Never <code>null</code>.
 	 */
-	protected String getRegion(final Map<String, String> parameters) {
+	private String getRegion(final Map<String, String> parameters) {
 		return Optional.ofNullable(parameters.get(PARAMETER_REGION))
 				.orElseGet(() -> configuration.get(CONF_REGION, DEFAULT_REGION));
 	}
@@ -431,7 +433,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Return the resource tag value or <code>null</code>
 	 */
-	protected String getResourceTag(final Element record, final String name) {
+	private String getResourceTag(final Element record, final String name) {
 		return Optional.ofNullable(record.getElementsByTagName("tagSet").item(0))
 				.map(n -> ((Element) n).getElementsByTagName("item"))
 				.map(n -> IntStream.range(0, n.getLength()).mapToObj(n::item).map(t -> (Element) t)
@@ -447,7 +449,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *            The XML element.
 	 * @return The "name" tag text value of <code>null</code> when not found.
 	 */
-	protected String getName(final Element record) {
+	private String getName(final Element record) {
 		return getResourceTag(record, "name");
 	}
 
@@ -488,32 +490,15 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * Create Curl request for AWS service. Initialize default values for awsAccessKey, awsSecretKey and regionName and
 	 * compute signature.
 	 * 
-	 * @param signatureBuilder
+	 * @param builder
 	 *            {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers, parameters,
 	 *            host, ...)
-	 * @param subscription
-	 *            Subscription's identifier.
+	 * @param parameters
+	 *            The subscription's parameters.
 	 * @return initialized request
 	 */
-	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder signatureBuilder, final int subscription) {
-		return newRequest(signatureBuilder, subscriptionResource.getParameters(subscription));
-	}
-
-	/**
-	 * Create Curl request for AWS service. Initialize default values for awsAccessKey, awsSecretKey and regionName and
-	 * compute signature.
-	 * 
-	 * @param signatureBuilder
-	 *            {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers, parameters,
-	 *            host, ...)
-	 * @param subscription
-	 *            Subscription's identifier.
-	 * @return initialized request
-	 */
-	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder signatureBuilder,
-			final Map<String, String> parameters) {
-		final AWS4SignatureQuery query = signatureBuilder
-				.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
+	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder builder, final Map<String, String> parameters) {
+		final AWS4SignatureQuery query = builder.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
 				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY))
 				.region(getRegion(parameters)).build();
 		final String authorization = signer.computeSignature(query);
@@ -525,6 +510,13 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		return request;
 	}
 
+	/**
+	 * Return the base host URL from a query.
+	 * 
+	 * @param query
+	 *            Source {@link AWS4SignatureQuery}
+	 * @return The base host URL from a query.
+	 */
 	protected String toHost(final AWS4SignatureQuery query) {
 		return "https://" + query.getHost();
 	}

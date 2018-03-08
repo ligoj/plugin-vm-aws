@@ -28,6 +28,10 @@ public abstract class AWS4SignerBase {
 	/**
 	 * Returns the canonical collection of header names that will be included in the signature. For AWS4, all header
 	 * names must be included in the process in sorted canonicalized order.
+	 * 
+	 * @param headers
+	 *            Current headers.
+	 * @return Appended headers names only.
 	 */
 	protected String getCanonicalizeHeaderNames(final Map<String, String> headers) {
 		return headers.keySet().stream().sorted(String.CASE_INSENSITIVE_ORDER).map(String::toLowerCase)
@@ -37,6 +41,10 @@ public abstract class AWS4SignerBase {
 	/**
 	 * Computes the canonical headers with values for the request. For AWS4, all headers must be included in the signing
 	 * process.
+	 * 
+	 * @param headers
+	 *            Current headers.
+	 * @return Appended headers names and values.
 	 */
 	protected String getCanonicalizedHeaderString(final Map<String, String> headers) {
 		if (headers.isEmpty()) {
@@ -53,17 +61,31 @@ public abstract class AWS4SignerBase {
 
 	/**
 	 * Returns the canonical request string to go into the signer process; this consists of several canonical sub-parts.
-	 *
-	 * @return
+	 * 
+	 * @param path
+	 *            URL path.
+	 * @param method
+	 *            The HTTP method.
+	 * @param headerNames
+	 *            Canonicalized header names.
+	 * @param headers
+	 *            Canonicalized header names and values.
+	 * @param bodyHash
+	 *            Hash digest of the body..
+	 * @return The canonicalized string request without body.
 	 */
-	protected String getCanonicalRequest(final String path, final String httpMethod, final String queryParameters,
-			final String canonicalizedHeaderNames, final String canonicalizedHeaders, final String bodyHash) {
-		return httpMethod + LF + getCanonicalizedResourcePath(path) + LF + queryParameters + LF + canonicalizedHeaders
-				+ LF + canonicalizedHeaderNames + LF + bodyHash;
+	protected String getCanonicalRequest(final String path, final String method, final String parameters,
+			final String headerNames, final String headers, final String bodyHash) {
+		return method + LF + getCanonicalizedResourcePath(path) + LF + parameters + LF + headers + LF + headerNames + LF
+				+ bodyHash;
 	}
 
 	/**
 	 * Returns the canonicalized resource path for the service endpoint.
+	 * 
+	 * @param path
+	 *            URL path.
+	 * @return The canonicalized URL request.
 	 */
 	protected String getCanonicalizedResourcePath(final String path) {
 		try {

@@ -296,7 +296,7 @@ public class VmAwsSnapshotResource {
 	 *            A transient instance of the related task, and also linked to a subscription. Note it is a read-only
 	 *            view.
 	 */
-	public void create(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
+	protected void create(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
 		final int subscription = task.getLocked().getId();
 		final Map<String, String> parameters = subscriptionResource.getParametersNoCheck(subscription);
 		// Create the AMI
