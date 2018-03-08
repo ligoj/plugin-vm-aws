@@ -20,7 +20,9 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.UriInfo;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
 
@@ -206,22 +208,28 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *            the node to be tested with given parameters.
 	 * @param criteria
 	 *            the search criteria. Case is insensitive.
+	 * @param uriInfo
+	 *            Additional subscription parameters.
 	 * @return virtual machines.
 	 */
 	@GET
 	@Path("{node:service:.+}/{criteria}")
 	@Consumes(MediaType.APPLICATION_JSON)
 	public List<AwsVm> findAllByNameOrId(@PathParam("node") final String node,
-			@PathParam("criteria") final String criteria)
+			@PathParam("criteria") final String criteria, @Context final UriInfo uriInfo)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		// Check the node exists
 		if (nodeRepository.findOneVisible(node, securityHelper.getLogin()) == null) {
 			return Collections.emptyList();
 		}
 
+		// Merge the node parameters to the node ones
+		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters(node));
+		uriInfo.getQueryParameters().forEach((p, v) -> parameters.putIfAbsent(p, v.get(0)));
+
 		// Get all VMs and then filter by its name or id
 		// Note : AWS does not support RegExp on tag
-		return this.getDescribeInstances(pvResource.getNodeParameters(node), "", this::toVm).stream()
+		return this.getDescribeInstances(parameters, "", this::toVm).stream()
 				.filter(vm -> StringUtils.containsIgnoreCase(vm.getName(), criteria)
 						|| StringUtils.containsIgnoreCase(vm.getId(), criteria))
 				.sorted().collect(Collectors.toList());

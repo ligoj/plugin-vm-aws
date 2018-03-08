@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.transaction.Transactional;
+import javax.ws.rs.core.UriInfo;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpStatus;
@@ -65,7 +66,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	private static final String MOCK_URL = "http://localhost:" + MOCK_PORT + "/mock";
 
-	@Autowired
 	private VmAwsPluginResource resource;
 
 	@Autowired
@@ -90,11 +90,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 				ParameterValue.class, VmSchedule.class }, StandardCharsets.UTF_8.name());
 		this.subscription = getSubscription("gStack");
 
-		// Coverage only
-		resource.getKey();
-
-		// Invalidate vCloud cache
+		// Invalidate cache
 		CacheManager.getInstance().getCache("curl-tokens").removeAll();
+		CacheManager.getInstance().getCache("node-parameters").removeAll();
 
 		resource = new VmAwsPluginResource() {
 			@Override
@@ -105,6 +103,9 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		applicationContext.getAutowireCapableBeanFactory().autowireBean(resource);
 		configuration.delete("service:vm:aws:region");
 		resource.afterPropertiesSet();
+
+		// Coverage only
+		resource.getKey();
 	}
 
 	@Test
@@ -208,26 +209,51 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdNoVisible() throws Exception {
-		final List<AwsVm> projects = resource.findAllByNameOrId("service:vm:aws:any", "INSTANCE_ ");
+		final List<AwsVm> projects = resource.findAllByNameOrId("service:vm:aws:any", "INSTANCE_ ", newUriInfo());
 		Assertions.assertEquals(0, projects.size());
 	}
 
 	@Test
 	public void findAllByNameOrId() throws Exception {
-		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
-				HttpStatus.SC_OK,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
-						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
+		final List<AwsVm> projects = mockEc2Ok("eu-west-1").findAllByNameOrId("service:vm:aws:test", "INSTANCE_",
+				newUriInfo());
 		Assertions.assertEquals(6, projects.size());
 		checkVm(projects.get(0));
 	}
 
 	@Test
+	public void findAllByNameOrIdNotFoundInRegion() throws Exception {
+		Assertions.assertEquals(0,
+				mockEc2Ok("eu-west-x").findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfo()).size());
+
+	}
+
+	@Test
+	public void findAllByNameOrIdNotFoundInRegion2() throws Exception {
+		// Remove "service:vm:aws:region" parameter, this way, it can be set by the query parameter
+		pvResource.getNodeParameters("service:vm:aws:test").remove("service:vm:aws:region");
+		Assertions.assertEquals(0, mockEc2Ok("eu-west-1")
+				.findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfoRegion("eu-west-3")).size());
+	}
+
+	@Test
+	public void findAllByNameOrIdOverrideParameter() throws Exception {
+		// "service:vm:aws:region" parameter is already defined in the node, so will stay "eu-west-1"
+		Assertions.assertEquals(0, mockEc2Ok("eu-west-3")
+				.findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfoRegion("eu-west-3")).size());
+	}
+
+	@Test
+	public void findAllByNameOrIdAnotherRegion() throws Exception {
+		Assertions.assertEquals(0, mockEc2Ok("eu-west-3")
+				.findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfoRegion("eu-west-3")).size());
+
+	}
+
+	@Test
 	public void findAllByNameOrIdNoName() throws Exception {
-		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
-				HttpStatus.SC_OK,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
-						.findAllByNameOrId("service:vm:aws:test", "i-00000006");
+		final List<AwsVm> projects = mockEc2Ok("eu-west-1").findAllByNameOrId("service:vm:aws:test", "i-00000006",
+				newUriInfo());
 		Assertions.assertEquals(1, projects.size());
 		final Vm item = projects.get(0);
 		Assertions.assertEquals("i-00000006", item.getId());
@@ -236,14 +262,23 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdById() throws Exception {
-		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
-				HttpStatus.SC_OK,
-				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"))
-						.findAllByNameOrId("service:vm:aws:test", "i-00000005");
+		final List<AwsVm> projects = mockEc2Ok("eu-west-1").findAllByNameOrId("service:vm:aws:test", "i-00000005",
+				newUriInfo());
 		Assertions.assertEquals(1, projects.size());
 		final Vm item = projects.get(0);
 		Assertions.assertEquals("i-00000005", item.getId());
 		Assertions.assertEquals("INSTANCE_STOPPING", item.getName());
+	}
+
+	private VmAwsPluginResource mockEc2Ok(final String region) throws IOException {
+		return mockEc2(region, "Action=DescribeInstances&Version=2016-11-15", HttpStatus.SC_OK,
+				IOUtils.toString(new ClassPathResource("mock-server/aws/describe.xml").getInputStream(), "UTF-8"));
+	}
+
+	private UriInfo newUriInfoRegion(final String region) {
+		final UriInfo uriInfo = newUriInfo();
+		uriInfo.getQueryParameters().putSingle("service:vm:aws:region", region);
+		return uriInfo;
 	}
 
 	@Test
@@ -251,7 +286,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		final List<AwsVm> projects = mockEc2("eu-west-1", "Action=DescribeInstances&Version=2016-11-15",
 				HttpStatus.SC_OK,
 				IOUtils.toString(new ClassPathResource("mock-server/aws/describe-empty.xml").getInputStream(), "UTF-8"))
-						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_");
+						.findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfo());
 		Assertions.assertEquals(0, projects.size());
 	}
 
