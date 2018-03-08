@@ -408,8 +408,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
-		Mockito.doReturn(MOCK_URL + "/" + counterQuery).when(resource)
-				.toHost(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
+		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
+				.toUrl(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
 
 					@Override
 					public boolean matches(final AWS4SignatureQuery query) {
@@ -437,8 +437,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		resource = Mockito.spy(resource);
 		parameters.remove("service:vm:aws:region");
 		resource.configuration.saveOrUpdate("service:vm:aws:region", "middle");
-		Mockito.doReturn(MOCK_URL + "/" + counterQuery).when(resource)
-				.toHost(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
+		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
+				.toUrl(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
 
 					@Override
 					public boolean matches(final AWS4SignatureQuery query) {
@@ -491,8 +491,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	private void addQueryMock(final VmAwsPluginResource resource, final String service, final String region,
 			final String body, final int status, final String response) {
 		counterQuery++;
-		Mockito.doReturn(MOCK_URL + "/" + counterQuery).when(resource)
-				.toHost(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
+		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
+				.toUrl(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
 
 					@Override
 					public boolean matches(final AWS4SignatureQuery query) {

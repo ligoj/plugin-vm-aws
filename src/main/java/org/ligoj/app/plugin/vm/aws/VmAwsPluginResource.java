@@ -420,7 +420,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		// Call S3 ls service
 		// TODO Use EC2 instead of S3
 		return new CurlProcessor()
-				.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3").path("/"), parameters));
+				.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3"), parameters));
 	}
 
 	@Override
@@ -479,7 +479,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final Map<String, String> parameters, final String query) {
-		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().path("/").service("ec2")
+		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().service("ec2")
 				.body(query + "&Version=" + VmAwsPluginResource.API_VERSION);
 		final CurlRequest request = newRequest(signatureQuery, parameters);
 		new CurlProcessor().process(request);
@@ -500,10 +500,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder builder, final Map<String, String> parameters) {
 		final AWS4SignatureQuery query = builder.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
 				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY))
-				.region(getRegion(parameters)).build();
+				.region(getRegion(parameters)).path("/").build();
 		final String authorization = signer.computeSignature(query);
-		final CurlRequest request = new CurlRequest(query.getMethod(), toHost(query) + query.getPath(),
-				query.getBody());
+		final CurlRequest request = new CurlRequest(query.getMethod(), toUrl(query), query.getBody());
 		request.getHeaders().putAll(query.getHeaders());
 		request.getHeaders().put("Authorization", authorization);
 		request.setSaveResponse(true);
@@ -511,14 +510,14 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Return the base host URL from a query.
+	 * Return the URL from a query.
 	 * 
 	 * @param query
 	 *            Source {@link AWS4SignatureQuery}
 	 * @return The base host URL from a query.
 	 */
-	protected String toHost(final AWS4SignatureQuery query) {
-		return "https://" + query.getHost();
+	protected String toUrl(final AWS4SignatureQuery query) {
+		return "https://" + query.getHost() + query.getPath();
 	}
 
 	@Override
