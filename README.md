@@ -6,7 +6,6 @@
 [![Build Status](https://semaphoreci.com/api/v1/ligoj/plugin-vm-aws/branches/master/shields_badge.svg)](https://semaphoreci.com/ligoj/plugin-vm-aws)
 [![Build Status](https://ci.appveyor.com/api/projects/status/ivche15v2p1962xe/branch/master?svg=true)](https://ci.appveyor.com/project/ligoj/plugin-vm-aws/branch/master)
 [![Coverage Status](https://coveralls.io/repos/github/ligoj/plugin-vm-aws/badge.svg?branch=master)](https://coveralls.io/github/ligoj/plugin-vm-aws?branch=master)
-[![Dependency Status](https://www.versioneye.com/user/projects/58caeda8dcaf9e0041b5b978/badge.svg?style=flat)](https://www.versioneye.com/user/projects/58caeda8dcaf9e0041b5b978)
 [![Quality Gate](https://sonarcloud.io/api/badges/gate?key=org.ligoj.plugin:plugin-vm-aws)](https://sonarcloud.io/dashboard/index/org.ligoj.plugin:plugin-vm-aws)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/36ca446c091540289d23fe47f5027c0d)](https://www.codacy.com/app/ligoj/plugin-vm-aws?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ligoj/plugin-vm-aws&amp;utm_campaign=Badge_Grade)
 [![CodeFactor](https://www.codefactor.io/repository/github/ligoj/plugin-vm-aws/badge)](https://www.codefactor.io/repository/github/ligoj/plugin-vm-aws)
