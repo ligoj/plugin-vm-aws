@@ -1,3 +1,6 @@
+/*
+ * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
+ */
 define({
 	'service:vm:aws:user' : 'Utilisateur',
 	'service:vm:aws:password' : 'Mot de passe',
