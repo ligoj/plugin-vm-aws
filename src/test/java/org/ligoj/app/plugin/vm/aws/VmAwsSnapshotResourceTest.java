@@ -48,8 +48,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.xml.sax.SAXException;
 
-import net.sf.ehcache.CacheManager;
-
 /**
  * Test class of {@link VmAwsSnapshotResource}
  */
@@ -78,7 +76,7 @@ public class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		this.subscription = getSubscription("gStack");
 
 		// Invalidate vCloud cache
-		CacheManager.getInstance().getCache("curl-tokens").removeAll();
+		cacheManager.getCache("curl-tokens").clear();
 
 		resource = new VmAwsSnapshotResource();
 		applicationContext.getAutowireCapableBeanFactory().autowireBean(resource);

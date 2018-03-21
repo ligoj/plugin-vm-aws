@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.ligoj.app.AbstractServerTest;
 import org.ligoj.app.MatcherUtil;
 import org.ligoj.app.api.SubscriptionStatusWithData;
+import org.ligoj.app.dao.ParameterValueRepository;
 import org.ligoj.app.dao.SubscriptionRepository;
 import org.ligoj.app.model.Node;
 import org.ligoj.app.model.Parameter;
@@ -57,8 +58,6 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import net.sf.ehcache.CacheManager;
-
 /**
  * Test class of {@link VmAwsPluginResource}
  */
@@ -74,6 +73,10 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Autowired
 	private ParameterValueResource pvResource;
+
+
+	@Autowired
+	private ParameterValueRepository pvRepository;
 
 	@Autowired
 	private SubscriptionResource subscriptionResource;
@@ -95,8 +98,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		this.subscription = getSubscription("gStack");
 
 		// Invalidate cache
-		CacheManager.getInstance().getCache("curl-tokens").removeAll();
-		CacheManager.getInstance().getCache("node-parameters").removeAll();
+		cacheManager.getCache("curl-tokens").clear();
+		cacheManager.getCache("node-parameters").clear();
 
 		resource = new VmAwsPluginResource() {
 			@Override
@@ -239,8 +242,13 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	public void findAllByNameOrIdNotFoundInRegion2() throws Exception {
-		// Remove "service:vm:aws:region" parameter, this way, it can be set by the query parameter
-		pvResource.getNodeParameters("service:vm:aws:test").remove("service:vm:aws:region");
+		Assertions.assertTrue(pvResource.getNodeParameters("service:vm:aws:test").containsKey("service:vm:aws:region"));
+
+		// Remove "service:vm:aws:region" parameter, this way, it can be set with a query parameter
+		em.remove(pvRepository.findBy("parameter.id", "service:vm:aws:region"));
+		cacheManager.getCache("node-parameters").evict("service:vm:aws:test");
+		Assertions.assertFalse(pvResource.getNodeParameters("service:vm:aws:test").containsKey("service:vm:aws:region"));
+
 		Assertions.assertEquals(0, mockEc2Ok("eu-west-1")
 				.findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfoRegion("eu-west-3")).size());
 	}
