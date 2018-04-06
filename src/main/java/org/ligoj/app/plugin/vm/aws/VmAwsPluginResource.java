@@ -339,8 +339,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks, final String type,
 			final String ipAttr, final String dnsAttr) {
 		// When IP is available, add the corresponding network
-		// TODO API 2.2.3+, remove useless StringUtils::trimToNull
-		Optional.ofNullable(StringUtils.trimToNull(xml.getTagText(networkNode, ipAttr)))
+		Optional.ofNullable(xml.getTagText(networkNode, ipAttr))
 				.ifPresent(i -> networks.add(new VmNetwork(type, i, xml.getTagText(networkNode, dnsAttr))));
 	}
 
