@@ -15,6 +15,11 @@ import lombok.Setter;
 @Setter
 public class AwsVm extends Vm {
 
+	/**
+	 * SID
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private String vpc;
 
 	/**
