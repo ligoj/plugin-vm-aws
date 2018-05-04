@@ -1,3 +1,12 @@
 .service-vm-aws .service-vm-operation-suspend, .configuration-wrapper-service-vm-aws tr[data-id="suspend"] {
 	display: none;
 }
+.masonry-container .node.service-vm-aws.mode-th-list table.subscriptions th.features {
+	width: 92px;
+}
+.masonry-container .node.service-vm-aws.mode-th-large table.subscriptions th.features {
+	width: 95px;
+}
+.masonry-container .node.service-vm-aws table.subscriptions th.features {
+	width: 82px;
+}

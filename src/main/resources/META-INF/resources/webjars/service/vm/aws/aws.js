@@ -18,7 +18,10 @@ define(function () {
 			var result = '';
 			if (subscription.parameters && subscription.parameters['service:vm:aws:account']) {
 				// Add console login page
-				result += current.$super('renderServicelink')('home', 'https://'+ subscription.parameters['service:vm:aws:account'] + '.signin.aws.amazon.com/console', 'service:vm:aws:console', null, ' target="_blank"');
+				result += current.$super('renderServicelink')('sign-in-alt', 'https://'+ subscription.parameters['service:vm:aws:account'] + '.signin.aws.amazon.com/console', 'service:vm:aws:signin', null, ' target="_blank"');
+			}
+			if (subscription.parameters && subscription.parameters['service:vm:aws:region'] && subscription.parameters['service:vm:aws:id']) {
+				result += current.$super('renderServicelink')('desktop', 'https://'+ subscription.parameters['service:vm:aws:region'] + '.console.aws.amazon.com/ec2/v2/home?region=' + subscription.parameters['service:vm:aws:region'] + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"');
 			}
 			return result;
 		},
@@ -30,8 +33,15 @@ define(function () {
 		/**
 		 * Render AWS details : id, name of VM, description, CPU, memory and vApp.
 		 */
-		renderDetailsKey: function (subscription) {
+		renderDetailsKey: function (subscription, $td) {
 			var vm = subscription.data.vm;
+
+			if (subscription.parameters && subscription.parameters['service:vm:aws:id'] && typeof subscription.parameters['service:vm:aws:region'] === 'undefined' && vm.az) {
+				// Extract the region from the AZ
+				var region = vm.az.substring(0, vm.az.length - 1);
+				$td.closest('tr').find('td.features>.details').before($(current.$super('renderServicelink')('desktop', 'https://'+ region + '.console.aws.amazon.com/ec2/v2/home?region=' + region + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"')));
+			}
+			
 			return current.$super('generateCarousel')(subscription, [
 				['service:vm:aws:id', current.renderKey(subscription)],
 				['name', vm.name],
