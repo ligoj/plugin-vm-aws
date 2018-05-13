@@ -130,7 +130,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * VM operation mapping.
-	 * 
+	 *
 	 * @see <a href="http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StopInstances.html">StopInstances</a>
 	 * @see <a href="http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StartInstances.html">StartInstances</a>
 	 */
@@ -185,7 +185,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Well known instance types with details and load on initialization.
-	 * 
+	 *
 	 * @see "csv/instance-type-details.csv"
 	 */
 	private Map<String, InstanceType> instanceTypes;
@@ -359,7 +359,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Check AWS connection and account.
-	 * 
+	 *
 	 * @param parameters
 	 *            The subscription parameters.
 	 * @return <code>true</code> if AWS connection is up
@@ -397,7 +397,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Log the instance state transition and indicates the transition was a success.
-	 * 
+	 *
 	 * @param response
 	 *            the EC2 response markup.
 	 * @return <code>true</code> when the transition succeed.
@@ -415,7 +415,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Return the region from the subscription's parameters or the the default one.
-	 * 
+	 *
 	 * @param parameters
 	 *            The subscription parameters.
 	 * @return The right region to use. Never <code>null</code>.
@@ -427,7 +427,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Check AWS connection and account.
-	 * 
+	 *
 	 * @param parameters
 	 *            Subscription parameters.
 	 * @return <code>true</code> if AWS connection is up
@@ -435,8 +435,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	protected boolean validateAccess(final Map<String, String> parameters) {
 		// Call S3 ls service
 		// TODO Use EC2 instead of S3
-		return new CurlProcessor()
-				.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3"), parameters));
+		try (CurlProcessor curl = new CurlProcessor()) {
+			return curl.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3"), parameters));
+		}
 	}
 
 	@Override
@@ -460,7 +461,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Return the tag "name" value or <code>null</code>
-	 * 
+	 *
 	 * @param record
 	 *            The XML element.
 	 * @return The "name" tag text value of <code>null</code> when not found.
@@ -471,12 +472,12 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Execute an EC2 query using the given subscription parameters.
-	 * 
+	 *
 	 * @param subscription
 	 *            The subscription holding the parameters.
 	 * @param queryProvider
 	 *            The query string provider that would be placed into the AWS body.
-	 * 
+	 *
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
@@ -486,26 +487,28 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Execute an EC2 query using the given subscription parameters.
-	 * 
+	 *
 	 * @param parameters
 	 *            The subscription's parameters.
 	 * @param query
 	 *            The query string that would be placed into the AWS body.
-	 * 
+	 *
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final Map<String, String> parameters, final String query) {
 		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().service("ec2")
 				.body(query + "&Version=" + VmAwsPluginResource.API_VERSION);
 		final CurlRequest request = newRequest(signatureQuery, parameters);
-		new CurlProcessor().process(request);
+		try (CurlProcessor curl = new CurlProcessor()) {
+			curl.process(request);
+		}
 		return request.getResponse();
 	}
 
 	/**
 	 * Create Curl request for AWS service. Initialize default values for awsAccessKey, awsSecretKey and regionName and
 	 * compute signature.
-	 * 
+	 *
 	 * @param builder
 	 *            {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers, parameters,
 	 *            host, ...)
@@ -527,7 +530,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Return the URL from a query.
-	 * 
+	 *
 	 * @param query
 	 *            Source {@link AWS4SignatureQuery}
 	 * @return The base host URL from a query.

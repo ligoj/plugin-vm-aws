@@ -388,7 +388,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 	public void newRequestCustomRegion() {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.remove(VmAwsPluginResource.PARAMETER_REGION);
-		configuration.saveOrUpdate("service:vm:aws:region", "middle");
+		configuration.put("service:vm:aws:region", "middle");
 		final CurlRequest request = resource
 				.newRequest(AWS4SignatureQuery.builder().path("/").body("body").service("s3"), parameters);
 		Assertions.assertTrue(request.getHeaders().containsKey("Authorization"));
@@ -453,7 +453,7 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
 		resource = Mockito.spy(resource);
 		parameters.remove("service:vm:aws:region");
-		resource.configuration.saveOrUpdate("service:vm:aws:region", "middle");
+		resource.configuration.put("service:vm:aws:region", "middle");
 		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
 				.toUrl(ArgumentMatchers.argThat(new ArgumentMatcher<AWS4SignatureQuery>() {
 
