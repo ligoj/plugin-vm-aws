@@ -31,17 +31,22 @@ define(function () {
 		},
 
 		/**
-		 * Render AWS details : id, name of VM, description, CPU, memory and vApp.
+		 * Add the console when the subscription is checked
 		 */
-		renderDetailsKey: function (subscription, $td) {
+		renderDetailsFeatures: function (subscription, $tr, $features) {
 			var vm = subscription.data.vm;
-
-			if (subscription.parameters && subscription.parameters['service:vm:aws:id'] && typeof subscription.parameters['service:vm:aws:region'] === 'undefined' && vm.az) {
+			if (subscription.parameters && subscription.parameters['service:vm:aws:id'] && typeof subscription.parameters['service:vm:aws:region'] === 'undefined' && vm.az && $features.has('.feature.console').length === 0) {
 				// Extract the region from the AZ
 				var region = vm.az.substring(0, vm.az.length - 1);
-				$td.closest('tr').find('td.features>.details').before($(current.$super('renderServicelink')('desktop', 'https://'+ region + '.console.aws.amazon.com/ec2/v2/home?region=' + region + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"')));
+				$features.find('.details').before($(current.$super('renderServicelink')('desktop', 'https://'+ region + '.console.aws.amazon.com/ec2/v2/home?region=' + region + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"')).addClass('console'));
 			}
-			
+		},
+
+		/**
+		 * Render AWS details : id, name of VM, description, CPU, memory and vApp.
+		 */
+		renderDetailsKey: function (subscription, $tr) {
+			var vm = subscription.data.vm;
 			return current.$super('generateCarousel')(subscription, [
 				['service:vm:aws:id', current.renderKey(subscription)],
 				['name', vm.name],
