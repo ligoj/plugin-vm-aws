@@ -3,7 +3,7 @@
  */
 package org.ligoj.app.plugin.vm.aws;
 
-import org.ligoj.app.plugin.vm.Vm;
+import org.ligoj.app.plugin.vm.execution.Vm;
 
 import lombok.Getter;
 import lombok.Setter;

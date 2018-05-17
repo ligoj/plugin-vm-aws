@@ -37,11 +37,11 @@ import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.dao.NodeRepository;
 import org.ligoj.app.plugin.vm.VmNetwork;
 import org.ligoj.app.plugin.vm.VmResource;
-import org.ligoj.app.plugin.vm.VmServicePlugin;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
 import org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader;
 import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
+import org.ligoj.app.plugin.vm.execution.VmExecutionServicePlugin;
 import org.ligoj.app.plugin.vm.model.VmExecution;
 import org.ligoj.app.plugin.vm.model.VmOperation;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
@@ -74,7 +74,7 @@ import lombok.extern.slf4j.Slf4j;
 @Produces(MediaType.APPLICATION_JSON)
 @Slf4j
 public class VmAwsPluginResource extends AbstractToolPluginResource
-		implements VmServicePlugin, InitializingBean, Snapshotting {
+		implements VmExecutionServicePlugin, InitializingBean, Snapshotting {
 
 	private static final String API_VERSION = "2016-11-15";
 
