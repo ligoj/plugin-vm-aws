@@ -2,7 +2,6 @@
 
 [![Build Status](https://travis-ci.org/ligoj/plugin-vm-aws.svg?branch=master)](https://travis-ci.org/ligoj/plugin-vm-aws)
 [![Build Status](https://circleci.com/gh/ligoj/plugin-vm-aws.svg?style=svg)](https://circleci.com/gh/ligoj/plugin-vm-aws)
-[![Build Status](https://codeship.com/projects/68badea0-0034-0135-2257-76737245ebb2/status?branch=master)](https://codeship.com/projects/212508)
 [![Build Status](https://semaphoreci.com/api/v1/ligoj/plugin-vm-aws/branches/master/shields_badge.svg)](https://semaphoreci.com/ligoj/plugin-vm-aws)
 [![Build Status](https://ci.appveyor.com/api/projects/status/ivche15v2p1962xe/branch/master?svg=true)](https://ci.appveyor.com/project/ligoj/plugin-vm-aws/branch/master)
 [![Coverage Status](https://coveralls.io/repos/github/ligoj/plugin-vm-aws/badge.svg?branch=master)](https://coveralls.io/github/ligoj/plugin-vm-aws?branch=master)
