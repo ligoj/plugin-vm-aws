@@ -4,13 +4,13 @@
 	<parent>
 		<groupId>org.ligoj.api</groupId>
 		<artifactId>plugin-parent</artifactId>
-		<version>3.1.0</version>
+		<version>3.1.1</version>
 		<relativePath />
 	</parent>
 
 	<groupId>org.ligoj.plugin</groupId>
 	<artifactId>plugin-vm-aws</artifactId>
-	<version>1.0.18-SNAPSHOT</version>
+	<version>1.0.18</version>
 	<packaging>jar</packaging>
 	<name>Ligoj - Plugin VM AWS EC2</name>
 
