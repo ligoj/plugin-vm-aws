@@ -16,44 +16,35 @@ public class AWS4SignatureQueryTest {
 
 	@Test
 	public void builderNoHost() {
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().build();
-		});
+		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().build());
 	}
 
 	@Test
 	public void builderNoPath() {
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().build();
-		});
+		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().build());
 	}
 
 	@Test
 	public void builderNoService() {
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().path("/").build();
-		});
+		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().path("/").build());
 	}
 
 	@Test
 	public void builderNoRegion() {
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().path("/").service("ec2").build();
-		});
+		Assertions.assertThrows(NullPointerException.class,
+				() -> AWS4SignatureQuery.builder().path("/").service("ec2").build());
 	}
 
 	@Test
 	public void builderNoAccessKey() {
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").build();
-		});
+		Assertions.assertThrows(NullPointerException.class,
+				() -> AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").build());
 	}
 
 	@Test
 	public void builderNoSecretKey() {
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").accessKey("--access-key--").build();
-		});
+		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().path("/").service("ec2")
+				.region("eu-west-1").accessKey("--access-key--").build());
 	}
 
 	@Test
@@ -63,7 +54,8 @@ public class AWS4SignatureQueryTest {
 		builder = builderCommon(builder);
 		builder = builder.method("GET");
 		builder.toString();
-		builder.build();
+		Assertions.assertEquals("s3-eu-west-1.amazonaws.com", builder.service("s3").build().getHost());
+		Assertions.assertEquals("ec2.eu-west-1.amazonaws.com", builder.service("ec2").build().getHost());
 	}
 
 	@Test
@@ -73,9 +65,7 @@ public class AWS4SignatureQueryTest {
 		builder = builderCommon(builder);
 		AWS4SignatureQueryBuilder builder0 = builder.method(null);
 		builder0.toString();
-		Assertions.assertThrows(NullPointerException.class, () -> {
-			builder0.build();
-		});
+		Assertions.assertThrows(NullPointerException.class, () -> builder0.build());
 	}
 
 	private AWS4SignatureQueryBuilder builderCommon(AWS4SignatureQueryBuilder builderParam) {
