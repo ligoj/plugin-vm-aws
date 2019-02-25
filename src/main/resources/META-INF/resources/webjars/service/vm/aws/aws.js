@@ -45,7 +45,7 @@ define(function () {
 		/**
 		 * Render AWS details : id, name of VM, description, CPU, memory and vApp.
 		 */
-		renderDetailsKey: function (subscription, $tr) {
+		renderDetailsKey: function (subscription) {
 			var vm = subscription.data.vm;
 			return current.$super('generateCarousel')(subscription, [
 				['service:vm:aws:id', current.renderKey(subscription)],

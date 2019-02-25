@@ -190,19 +190,91 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 */
 	private Map<String, InstanceType> instanceTypes;
 
-	@Override
-	public AwsVm getVmDetails(final Map<String, String> parameters) throws Exception {
-		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
+	/**
+	 * Fill the given VM networks with its network details.
+	 */
+	protected void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks) {
+		// Private IP (optional)
+		addNetworkDetails(networkNode, networks, "private", "privateIpAddress", "privateDnsName");
 
-		// Get the VM if exists
-		return getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId,
-				this::toVmDetails).stream().findFirst().orElseThrow(
-						() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
+		// Public IP (optional)
+		addNetworkDetails(networkNode, networks, "public", "ipAddress", "dnsName");
+
+		// IPv6 (optional)
+		final XPath xPath = xml.xpathFactory.newXPath();
+		try {
+			final NodeList ipv6 = (NodeList) xPath.evaluate("networkInterfaceSet/item/ipv6AddressesSet", networkNode,
+					XPathConstants.NODESET);
+			IntStream.range(0, ipv6.getLength()).mapToObj(ipv6::item)
+					.forEach(i -> addNetworkDetails((Element) i, networks, "public", "item", "dnsName"));
+		} catch (final XPathExpressionException e) {
+			log.warn("Unable to evaluate IPv6", e);
+		}
+	}
+
+	/**
+	 * Fill the given VM networks with a specific network details.
+	 */
+	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks, final String type,
+			final String ipAttr, final String dnsAttr) {
+		// When IP is available, add the corresponding network
+		Optional.ofNullable(xml.getTagText(networkNode, ipAttr))
+				.ifPresent(i -> networks.add(new VmNetwork(type, i, xml.getTagText(networkNode, dnsAttr))));
 	}
 
 	@Override
-	public void link(final int subscription) throws Exception {
-		getVmDetails(subscriptionResource.getParameters(subscription));
+	public void afterPropertiesSet() throws IOException {
+		instanceTypes = csvForBean.toBean(InstanceType.class, "csv/instance-type-details.csv").stream()
+				.collect(Collectors.toMap(InstanceType::getId, Function.identity()));
+
+	}
+
+	/**
+	 * Check AWS connection and account.
+	 *
+	 * @param parameters
+	 *            The subscription parameters.
+	 * @return <code>true</code> if AWS connection is up
+	 */
+	@Override
+	public boolean checkStatus(final Map<String, String> parameters) {
+		return validateAccess(parameters);
+	}
+
+	@Override
+	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node,
+			final Map<String, String> parameters) throws Exception { // NOSONAR
+		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
+		status.put("vm", getVmDetails(parameters));
+		status.put("schedules", vmScheduleRepository.countBySubscription(subscription));
+		return status;
+	}
+
+	@Override
+	public void completeStatus(final VmSnapshotStatus task) {
+		snapshotResource.completeStatus(task);
+	}
+
+	@Override
+	public void delete(final VmSnapshotStatus transientTask) throws Exception {
+		snapshotResource.delete(transientTask);
+	}
+
+	@Override
+	public void execute(final VmExecution execution) throws Exception {
+		final int subscription = execution.getSubscription().getId();
+		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
+		// Propagate the instance identifiers
+		execution.setVm(getVmDetails(parameters).getName() + "," + parameters.get(PARAMETER_INSTANCE_ID));
+
+		// Execute the operation
+		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(execution.getOperation())).map(
+				a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
+				.orElse(null);
+		if (!logTransitionState(response)) {
+			// The result is not correct
+			throw new BusinessException("vm-operation-execute");
+		}
 	}
 
 	/**
@@ -240,6 +312,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 				.sorted().collect(Collectors.toList());
 	}
 
+	@Override
+	public List<Snapshot> findAllSnapshots(final int subscription, final String criteria) {
+		return snapshotResource.findAllByNameOrId(subscription, StringUtils.trimToEmpty(criteria));
+	}
+
 	/**
 	 * Get all instances visible for given AWS access key.
 	 *
@@ -265,14 +342,160 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		return toVms(response, parser);
 	}
 
+	private int getEc2State(final Element record) {
+		return getEc2State(record, "instanceState");
+	}
+
+	private int getEc2State(final Element record, final String tag) {
+		final Element stateElement = (Element) record.getElementsByTagName(tag).item(0);
+		return Integer.valueOf(xml.getTagText(stateElement, "code"));
+	}
+
+	@Override
+	public String getKey() {
+		return VmAwsPluginResource.KEY;
+	}
+
 	/**
-	 * Build described beans from a XML result.
+	 * Return the tag "name" value or <code>null</code>
+	 *
+	 * @param record
+	 *            The XML element.
+	 * @return The "name" tag text value of <code>null</code> when not found.
 	 */
-	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser) throws Exception {
-		final NodeList items = xml.getXpath(vmAsXml,
-				"/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
-		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> parser.apply((Element) n))
-				.collect(Collectors.toList());
+	private String getName(final Element record) {
+		return getResourceTag(record, "name");
+	}
+
+	/**
+	 * Return the region from the subscription's parameters or the the default one.
+	 *
+	 * @param parameters
+	 *            The subscription parameters.
+	 * @return The right region to use. Never <code>null</code>.
+	 */
+	private String getRegion(final Map<String, String> parameters) {
+		return Optional.ofNullable(parameters.get(PARAMETER_REGION))
+				.orElseGet(() -> configuration.get(CONF_REGION, DEFAULT_REGION));
+	}
+
+	/**
+	 * Return the resource tag value or <code>null</code>
+	 */
+	private String getResourceTag(final Element record, final String name) {
+		return Optional.ofNullable(record.getElementsByTagName("tagSet").item(0))
+				.map(n -> ((Element) n).getElementsByTagName("item"))
+				.map(n -> IntStream.range(0, n.getLength()).mapToObj(n::item).map(t -> (Element) t)
+						.filter(t -> xml.getTagText(t, "key").equalsIgnoreCase(name))
+						.map(t -> xml.getTagText(t, "value")).findFirst().orElse(null))
+				.orElse(null);
+	}
+
+	@Override
+	public AwsVm getVmDetails(final Map<String, String> parameters) throws Exception {
+		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
+
+		// Get the VM if exists
+		return getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId,
+				this::toVmDetails).stream().findFirst().orElseThrow(
+						() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
+	}
+
+	@Override
+	public void link(final int subscription) throws Exception {
+		getVmDetails(subscriptionResource.getParameters(subscription));
+	}
+
+	/**
+	 * Log the instance state transition and indicates the transition was a success.
+	 *
+	 * @param response
+	 *            the EC2 response markup.
+	 * @return <code>true</code> when the transition succeed.
+	 */
+	private boolean logTransitionState(final String response)
+			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+		final NodeList items = xml.getXpath(ObjectUtils.defaultIfNull(response, "<a></a>"),
+				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> (Element) n)
+				.peek(e -> log.info("Instance {} goes from {} to {} state", xml.getTagText(e, "instanceId"),
+						getEc2State(e, "previousState"), getEc2State(e, "currentState")))
+				.findFirst().isPresent();
+
+	}
+
+	/**
+	 * Create Curl request for AWS service. Initialize default values for awsAccessKey, awsSecretKey and regionName and
+	 * compute signature.
+	 *
+	 * @param builder
+	 *            {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers, parameters,
+	 *            host, ...)
+	 * @param parameters
+	 *            The subscription's parameters.
+	 * @return initialized request
+	 */
+	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder builder, final Map<String, String> parameters) {
+		final AWS4SignatureQuery query = builder.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
+				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY))
+				.region(getRegion(parameters)).path("/").build();
+		final String authorization = signer.computeSignature(query);
+		final CurlRequest request = new CurlRequest(query.getMethod(), toUrl(query), query.getBody());
+		request.getHeaders().putAll(query.getHeaders());
+		request.getHeaders().put("Authorization", authorization);
+		request.setSaveResponse(true);
+		return request;
+	}
+
+	/**
+	 * Execute an EC2 query using the given subscription parameters.
+	 *
+	 * @param subscription
+	 *            The subscription holding the parameters.
+	 * @param queryProvider
+	 *            The query string provider that would be placed into the AWS body.
+	 *
+	 * @return The response. <code>null</code> when failed.
+	 */
+	protected String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
+		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
+		return processEC2(parameters, queryProvider.apply(parameters));
+	}
+
+	/**
+	 * Execute an EC2 query using the given subscription parameters.
+	 *
+	 * @param parameters
+	 *            The subscription's parameters.
+	 * @param query
+	 *            The query string that would be placed into the AWS body.
+	 *
+	 * @return The response. <code>null</code> when failed.
+	 */
+	protected String processEC2(final Map<String, String> parameters, final String query) {
+		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().service("ec2")
+				.body(query + "&Version=" + VmAwsPluginResource.API_VERSION);
+		final CurlRequest request = newRequest(signatureQuery, parameters);
+		try (CurlProcessor curl = new CurlProcessor()) {
+			curl.process(request);
+		}
+		return request.getResponse();
+	}
+
+	@Override
+	public void snapshot(final VmSnapshotStatus transientTask) throws Exception {
+		snapshotResource.create(transientTask);
+	}
+
+	/**
+	 * Return the URL from a query.
+	 *
+	 * @param query
+	 *            Source {@link AWS4SignatureQuery}
+	 * @return The base host URL from a query.
+	 */
+	protected String toUrl(final AWS4SignatureQuery query) {
+		return "https://" + query.getHost() + query.getPath();
 	}
 
 	/**
@@ -312,117 +535,13 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Fill the given VM networks with its network details.
+	 * Build described beans from a XML result.
 	 */
-	protected void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks) {
-		// Private IP (optional)
-		addNetworkDetails(networkNode, networks, "private", "privateIpAddress", "privateDnsName");
-
-		// Public IP (optional)
-		addNetworkDetails(networkNode, networks, "public", "ipAddress", "dnsName");
-
-		// IPv6 (optional)
-		final XPath xPath = xml.xpathFactory.newXPath();
-		try {
-			final NodeList ipv6 = (NodeList) xPath.evaluate("networkInterfaceSet/item/ipv6AddressesSet", networkNode,
-					XPathConstants.NODESET);
-			IntStream.range(0, ipv6.getLength()).mapToObj(ipv6::item)
-					.forEach(i -> addNetworkDetails((Element) i, networks, "public", "item", "dnsName"));
-		} catch (final XPathExpressionException e) {
-			log.warn("Unable to evaluate IPv6", e);
-		}
-	}
-
-	/**
-	 * Fill the given VM networks with a specific network details.
-	 */
-	private void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks, final String type,
-			final String ipAttr, final String dnsAttr) {
-		// When IP is available, add the corresponding network
-		Optional.ofNullable(xml.getTagText(networkNode, ipAttr))
-				.ifPresent(i -> networks.add(new VmNetwork(type, i, xml.getTagText(networkNode, dnsAttr))));
-	}
-
-	private int getEc2State(final Element record) {
-		return getEc2State(record, "instanceState");
-	}
-
-	private int getEc2State(final Element record, final String tag) {
-		final Element stateElement = (Element) record.getElementsByTagName(tag).item(0);
-		return Integer.valueOf(xml.getTagText(stateElement, "code"));
-	}
-
-	@Override
-	public String getKey() {
-		return VmAwsPluginResource.KEY;
-	}
-
-	/**
-	 * Check AWS connection and account.
-	 *
-	 * @param parameters
-	 *            The subscription parameters.
-	 * @return <code>true</code> if AWS connection is up
-	 */
-	@Override
-	public boolean checkStatus(final Map<String, String> parameters) {
-		return validateAccess(parameters);
-	}
-
-	@Override
-	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node,
-			final Map<String, String> parameters) throws Exception { // NOSONAR
-		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
-		status.put("vm", getVmDetails(parameters));
-		status.put("schedules", vmScheduleRepository.countBySubscription(subscription));
-		return status;
-	}
-
-	@Override
-	public void execute(final VmExecution execution) throws Exception {
-		final int subscription = execution.getSubscription().getId();
-		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
-		// Propagate the instance identifiers
-		execution.setVm(getVmDetails(parameters).getName() + "," + parameters.get(PARAMETER_INSTANCE_ID));
-
-		// Execute the operation
-		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(execution.getOperation())).map(
-				a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
-				.orElse(null);
-		if (!logTransitionState(response)) {
-			// The result is not correct
-			throw new BusinessException("vm-operation-execute");
-		}
-	}
-
-	/**
-	 * Log the instance state transition and indicates the transition was a success.
-	 *
-	 * @param response
-	 *            the EC2 response markup.
-	 * @return <code>true</code> when the transition succeed.
-	 */
-	private boolean logTransitionState(final String response)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		final NodeList items = xml.getXpath(ObjectUtils.defaultIfNull(response, "<a></a>"),
-				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
-		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> (Element) n)
-				.peek(e -> log.info("Instance {} goes from {} to {} state", xml.getTagText(e, "instanceId"),
-						getEc2State(e, "previousState"), getEc2State(e, "currentState")))
-				.findFirst().isPresent();
-
-	}
-
-	/**
-	 * Return the region from the subscription's parameters or the the default one.
-	 *
-	 * @param parameters
-	 *            The subscription parameters.
-	 * @return The right region to use. Never <code>null</code>.
-	 */
-	private String getRegion(final Map<String, String> parameters) {
-		return Optional.ofNullable(parameters.get(PARAMETER_REGION))
-				.orElseGet(() -> configuration.get(CONF_REGION, DEFAULT_REGION));
+	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser) throws Exception {
+		final NodeList items = xml.getXpath(vmAsXml,
+				"/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> parser.apply((Element) n))
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -438,125 +557,6 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		try (CurlProcessor curl = new CurlProcessor()) {
 			return curl.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3"), parameters));
 		}
-	}
-
-	@Override
-	public void afterPropertiesSet() throws IOException {
-		instanceTypes = csvForBean.toBean(InstanceType.class, "csv/instance-type-details.csv").stream()
-				.collect(Collectors.toMap(InstanceType::getId, Function.identity()));
-
-	}
-
-	/**
-	 * Return the resource tag value or <code>null</code>
-	 */
-	private String getResourceTag(final Element record, final String name) {
-		return Optional.ofNullable(record.getElementsByTagName("tagSet").item(0))
-				.map(n -> ((Element) n).getElementsByTagName("item"))
-				.map(n -> IntStream.range(0, n.getLength()).mapToObj(n::item).map(t -> (Element) t)
-						.filter(t -> xml.getTagText(t, "key").equalsIgnoreCase(name))
-						.map(t -> xml.getTagText(t, "value")).findFirst().orElse(null))
-				.orElse(null);
-	}
-
-	/**
-	 * Return the tag "name" value or <code>null</code>
-	 *
-	 * @param record
-	 *            The XML element.
-	 * @return The "name" tag text value of <code>null</code> when not found.
-	 */
-	private String getName(final Element record) {
-		return getResourceTag(record, "name");
-	}
-
-	/**
-	 * Execute an EC2 query using the given subscription parameters.
-	 *
-	 * @param subscription
-	 *            The subscription holding the parameters.
-	 * @param queryProvider
-	 *            The query string provider that would be placed into the AWS body.
-	 *
-	 * @return The response. <code>null</code> when failed.
-	 */
-	protected String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
-		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
-		return processEC2(parameters, queryProvider.apply(parameters));
-	}
-
-	/**
-	 * Execute an EC2 query using the given subscription parameters.
-	 *
-	 * @param parameters
-	 *            The subscription's parameters.
-	 * @param query
-	 *            The query string that would be placed into the AWS body.
-	 *
-	 * @return The response. <code>null</code> when failed.
-	 */
-	protected String processEC2(final Map<String, String> parameters, final String query) {
-		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().service("ec2")
-				.body(query + "&Version=" + VmAwsPluginResource.API_VERSION);
-		final CurlRequest request = newRequest(signatureQuery, parameters);
-		try (CurlProcessor curl = new CurlProcessor()) {
-			curl.process(request);
-		}
-		return request.getResponse();
-	}
-
-	/**
-	 * Create Curl request for AWS service. Initialize default values for awsAccessKey, awsSecretKey and regionName and
-	 * compute signature.
-	 *
-	 * @param builder
-	 *            {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers, parameters,
-	 *            host, ...)
-	 * @param parameters
-	 *            The subscription's parameters.
-	 * @return initialized request
-	 */
-	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder builder, final Map<String, String> parameters) {
-		final AWS4SignatureQuery query = builder.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
-				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY))
-				.region(getRegion(parameters)).path("/").build();
-		final String authorization = signer.computeSignature(query);
-		final CurlRequest request = new CurlRequest(query.getMethod(), toUrl(query), query.getBody());
-		request.getHeaders().putAll(query.getHeaders());
-		request.getHeaders().put("Authorization", authorization);
-		request.setSaveResponse(true);
-		return request;
-	}
-
-	/**
-	 * Return the URL from a query.
-	 *
-	 * @param query
-	 *            Source {@link AWS4SignatureQuery}
-	 * @return The base host URL from a query.
-	 */
-	protected String toUrl(final AWS4SignatureQuery query) {
-		return "https://" + query.getHost() + query.getPath();
-	}
-
-	@Override
-	public void snapshot(final VmSnapshotStatus transientTask) throws Exception {
-		snapshotResource.create(transientTask);
-	}
-
-	@Override
-	public List<Snapshot> findAllSnapshots(final int subscription, final String criteria) {
-		return snapshotResource.findAllByNameOrId(subscription, StringUtils.trimToEmpty(criteria));
-	}
-
-	@Override
-	public void completeStatus(final VmSnapshotStatus task) {
-		snapshotResource.completeStatus(task);
-	}
-
-	@Override
-	public void delete(final VmSnapshotStatus transientTask) throws Exception {
-		snapshotResource.delete(transientTask);
 	}
 
 }

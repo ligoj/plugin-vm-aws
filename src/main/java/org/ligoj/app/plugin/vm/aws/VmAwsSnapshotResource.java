@@ -90,53 +90,6 @@ public class VmAwsSnapshotResource {
 	protected IamProvider[] iamProvider;
 
 	/**
-	 * Return all AMIs matching to the given criteria and also associated to the given subscription. Note that
-	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
-	 * filter, there is delay between CreateImage and its visibility.
-	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param criteria
-	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
-	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
-	 * @return Matching AMIs ordered by descending creation date.
-	 */
-	public List<Snapshot> findAllByNameOrId(final int subscription, final String criteria) {
-		return findAllByNameOrId(subscription, criteria, snapshotResource.getTask(subscription));
-	}
-
-	/**
-	 * Return all AMIs matching to the given criteria and also associated to the given subscription. Note that
-	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
-	 * filter, there is delay between CreateImage and its visibility.
-	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param criteria
-	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
-	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
-	 * @param task
-	 *            The current task used to prepend the globally visible AMIs.
-	 * @return Matching AMIs ordered by descending creation date.
-	 */
-	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
-			final VmSnapshotStatus task) {
-		final List<Snapshot> snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
-				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
-
-		// Add the current task to the possible running snapshots
-		if (task != null) {
-			Optional.ofNullable(findUnlistedAmi(snapshots, task)).filter(s -> matches(s, criteria))
-					.ifPresent(s -> snapshots.add(0, s));
-
-			// Update the operation type from the task
-			snapshots.stream().filter(s -> StringUtils.equals(task.getSnapshotInternalId(), s.getId()))
-					.forEach(s -> s.setOperation(task.getOperation()));
-		}
-		return snapshots;
-	}
-
-	/**
 	 * Complete the task status from remote AWS information. Is considered as not completely finished when AMI tasks are
 	 * finished without error at client side, and that AMI can be found by its identifier and yet not listed with tag
 	 * filters.
@@ -163,132 +116,6 @@ public class VmAwsSnapshotResource {
 				task.setStatusText("not-finished-remote");
 			}
 		}
-	}
-
-	/**
-	 * Return the AMI corresponding to the given task and that is not in the given snapshot list.
-	 * 
-	 * @param snapshots
-	 *            The snapshots list to check.
-	 * @param task
-	 *            The task to check.
-	 * @return The not yet globally visible AMI or <code>null</code>.
-	 */
-	private Snapshot findUnlistedAmi(final List<Snapshot> snapshots, final VmSnapshotStatus task) {
-		Snapshot ami = null;
-		if (task.isFailed()) {
-			task.setFinishedRemote(true);
-			ami = toAmi(task, null);
-			ami.setPending(false);
-		} else if (task.getSnapshotInternalId() == null) {
-			// AMI is not yet created at all
-			ami = toAmi(task, "not-created");
-		} else if (!task.isFinishedRemote()) {
-			// Asynchronous management : Create vs Describe
-			if (snapshots.stream().anyMatch(s -> s.getId().equals(task.getSnapshotInternalId()))) {
-				// AMI is listed, and has been completed after the shutdown of the client
-				setFinishedRemote(task);
-			} else {
-				// AMI is unlisted, and yet has been created by the task, find it by its identifier
-				ami = findById(task.getLocked().getId(), task.getSnapshotInternalId());
-				if (ami == null) {
-					// AMI is unlisted and not yet found by AWS with direct link, would fail
-					ami = toAmi(task, "not-found");
-				} else {
-					// Complete the author from the task data
-					ami.setAuthor(getUser(task.getAuthor()));
-					setPending(ami, "not-finished-remote");
-				}
-			}
-		}
-		return ami;
-	}
-
-	/**
-	 * Convert a task to an unavailable snapshot
-	 */
-	private Snapshot toAmi(final VmSnapshotStatus task, final String statusText) {
-		final Snapshot taskAsSnapshot = new Snapshot();
-		taskAsSnapshot.setId(task.getSnapshotInternalId());
-		taskAsSnapshot.setAuthor(getUser(task.getAuthor()));
-		taskAsSnapshot.setDate(task.getStart());
-		taskAsSnapshot.setStopRequested(task.isStop());
-
-		// Override the status since this AMI is not really GA
-		setPending(taskAsSnapshot, StringUtils.defaultString(statusText, task.getStatusText()));
-		return taskAsSnapshot;
-	}
-
-	/**
-	 * Update the given task as finished remotely
-	 */
-	private void setFinishedRemote(final VmSnapshotStatus task) {
-		task.setFinishedRemote(true);
-		task.setDone(3);
-		task.setPhase("checking-availability");
-	}
-
-	/**
-	 * Mark the given snapshot as unavailable with the given status
-	 */
-	private void setPending(final Snapshot snapshot, final String statusText) {
-		snapshot.setPending(true);
-		snapshot.setAvailable(false);
-		snapshot.setStatusText(statusText);
-	}
-
-	/**
-	 * Return all AMIs associated to the given subscription. Note that "DescribeImages" does not work exactly the same
-	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay between CreateImage and
-	 * its visibility.
-	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @return Matching AMIs ordered by descending creation date.
-	 */
-	private List<Snapshot> findAllBySubscription(final int subscription) {
-		return findAll(subscription, "&Filter.1.Name=tag:" + TAG_SUBSCRIPTION + "&Filter.1.Value=" + subscription);
-	}
-
-	/**
-	 * Return all AMIs visible owned by the account associated to the subscription. Note that "DescribeImages" does not
-	 * work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay
-	 * between CreateImage and its visibility.
-	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param filter
-	 *            The additional "DescribeImages" filters. The base filter is "Owner.1=self". When <code>null</code> or
-	 *            empty, all owned AMIs are returned.
-	 * @return Matching AMIs ordered by descending creation date.
-	 */
-	private List<Snapshot> findAll(final int subscription, final String filter) {
-
-		// Get all AMI associated to a snapshot and the subscription
-		try {
-			return toAmis(resource.processEC2(subscription,
-					p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
-		} catch (final Exception e) {
-			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
-			throw new BusinessException("DescribeImages-failed");
-		}
-	}
-
-	/**
-	 * Find an AMI by its identifier. The images are not filtered by subscription since the AMI identifier is provided
-	 * by the CreateImage service.
-	 */
-	private Snapshot findById(final int subscription, final String ami) {
-		return findAll(subscription, "&ImageId.1=" + ami).stream().findAny().orElse(null);
-	}
-
-	/**
-	 * Check the given snapshot matches to the criteria : name, id, or one of its volume id.
-	 */
-	private boolean matches(final Snapshot snapshot, final String criteria) {
-		return StringUtils.containsIgnoreCase(StringUtils.defaultIfEmpty(snapshot.getName(), ""), criteria)
-				|| StringUtils.containsIgnoreCase(snapshot.getId(), criteria)
-				|| snapshot.getVolumes().stream().anyMatch(v -> StringUtils.containsIgnoreCase(v.getId(), criteria));
 	}
 
 	/**
@@ -346,23 +173,6 @@ public class VmAwsSnapshotResource {
 				s.setPhase("checking-availability");
 			});
 		}
-	}
-
-	/**
-	 * Indicate the AWS response is <code>true</code>.
-	 * 
-	 * @param response
-	 *            The AWS response.
-	 * @return <code>true</code> when the AWS response succeed.
-	 * @throws ParserConfigurationException
-	 *             XML parsing failed.
-	 * @throws IOException
-	 *             XML reading failed by the parser.
-	 * @throws SAXException
-	 *             XML processing failed.
-	 */
-	private boolean isReturnTrue(final String response) throws SAXException, IOException, ParserConfigurationException {
-		return response != null && BooleanUtils.toBoolean(xml.getTagText(xml.parse(response), "return"));
 	}
 
 	/**
@@ -435,6 +245,198 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
+	 * Return all AMIs visible owned by the account associated to the subscription. Note that "DescribeImages" does not
+	 * work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay
+	 * between CreateImage and its visibility.
+	 *
+	 * @param subscription
+	 *            The related subscription identifier.
+	 * @param filter
+	 *            The additional "DescribeImages" filters. The base filter is "Owner.1=self". When <code>null</code> or
+	 *            empty, all owned AMIs are returned.
+	 * @return Matching AMIs ordered by descending creation date.
+	 */
+	private List<Snapshot> findAll(final int subscription, final String filter) {
+
+		// Get all AMI associated to a snapshot and the subscription
+		try {
+			return toAmis(resource.processEC2(subscription,
+					p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
+		} catch (final Exception e) {
+			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
+			throw new BusinessException("DescribeImages-failed");
+		}
+	}
+
+	/**
+	 * Return all AMIs matching to the given criteria and also associated to the given subscription. Note that
+	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
+	 * filter, there is delay between CreateImage and its visibility.
+	 *
+	 * @param subscription
+	 *            The related subscription identifier.
+	 * @param criteria
+	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
+	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
+	 * @return Matching AMIs ordered by descending creation date.
+	 */
+	public List<Snapshot> findAllByNameOrId(final int subscription, final String criteria) {
+		return findAllByNameOrId(subscription, criteria, snapshotResource.getTask(subscription));
+	}
+
+	/**
+	 * Return all AMIs matching to the given criteria and also associated to the given subscription. Note that
+	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
+	 * filter, there is delay between CreateImage and its visibility.
+	 *
+	 * @param subscription
+	 *            The related subscription identifier.
+	 * @param criteria
+	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
+	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
+	 * @param task
+	 *            The current task used to prepend the globally visible AMIs.
+	 * @return Matching AMIs ordered by descending creation date.
+	 */
+	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
+			final VmSnapshotStatus task) {
+		final List<Snapshot> snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
+				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
+
+		// Add the current task to the possible running snapshots
+		if (task != null) {
+			Optional.ofNullable(findUnlistedAmi(snapshots, task)).filter(s -> matches(s, criteria))
+					.ifPresent(s -> snapshots.add(0, s));
+
+			// Update the operation type from the task
+			snapshots.stream().filter(s -> StringUtils.equals(task.getSnapshotInternalId(), s.getId()))
+					.forEach(s -> s.setOperation(task.getOperation()));
+		}
+		return snapshots;
+	}
+
+	/**
+	 * Return all AMIs associated to the given subscription. Note that "DescribeImages" does not work exactly the same
+	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay between CreateImage and
+	 * its visibility.
+	 *
+	 * @param subscription
+	 *            The related subscription identifier.
+	 * @return Matching AMIs ordered by descending creation date.
+	 */
+	private List<Snapshot> findAllBySubscription(final int subscription) {
+		return findAll(subscription, "&Filter.1.Name=tag:" + TAG_SUBSCRIPTION + "&Filter.1.Value=" + subscription);
+	}
+
+	/**
+	 * Find an AMI by its identifier. The images are not filtered by subscription since the AMI identifier is provided
+	 * by the CreateImage service.
+	 */
+	private Snapshot findById(final int subscription, final String ami) {
+		return findAll(subscription, "&ImageId.1=" + ami).stream().findAny().orElse(null);
+	}
+
+	/**
+	 * Return the AMI corresponding to the given task and that is not in the given snapshot list.
+	 * 
+	 * @param snapshots
+	 *            The snapshots list to check.
+	 * @param task
+	 *            The task to check.
+	 * @return The not yet globally visible AMI or <code>null</code>.
+	 */
+	private Snapshot findUnlistedAmi(final List<Snapshot> snapshots, final VmSnapshotStatus task) {
+		Snapshot ami = null;
+		if (task.isFailed()) {
+			task.setFinishedRemote(true);
+			ami = toAmi(task, null);
+			ami.setPending(false);
+		} else if (task.getSnapshotInternalId() == null) {
+			// AMI is not yet created at all
+			ami = toAmi(task, "not-created");
+		} else if (!task.isFinishedRemote()) {
+			// Asynchronous management : Create vs Describe
+			if (snapshots.stream().anyMatch(s -> s.getId().equals(task.getSnapshotInternalId()))) {
+				// AMI is listed, and has been completed after the shutdown of the client
+				setFinishedRemote(task);
+			} else {
+				// AMI is unlisted, and yet has been created by the task, find it by its identifier
+				ami = findById(task.getLocked().getId(), task.getSnapshotInternalId());
+				if (ami == null) {
+					// AMI is unlisted and not yet found by AWS with direct link, would fail
+					ami = toAmi(task, "not-found");
+				} else {
+					// Complete the author from the task data
+					ami.setAuthor(getUser(task.getAuthor()));
+					setPending(ami, "not-finished-remote");
+				}
+			}
+		}
+		return ami;
+	}
+
+	/**
+	 * Request IAM provider to get user details.
+	 * 
+	 * @param login
+	 *            The requested user login.
+	 * @return Either the resolved instance, either <code>null</code> when not found.
+	 */
+	protected SimpleUser getUser(final String login) {
+		return Optional.ofNullable(iamProvider[0].getConfiguration().getUserRepository().findById(login))
+				.orElseGet(() -> {
+					// Untracked user
+					final UserOrg user = new UserOrg();
+					user.setId(login);
+					return user;
+				});
+	}
+
+	/**
+	 * Indicate the AWS response is <code>true</code>.
+	 * 
+	 * @param response
+	 *            The AWS response.
+	 * @return <code>true</code> when the AWS response succeed.
+	 * @throws ParserConfigurationException
+	 *             XML parsing failed.
+	 * @throws IOException
+	 *             XML reading failed by the parser.
+	 * @throws SAXException
+	 *             XML processing failed.
+	 */
+	private boolean isReturnTrue(final String response) throws SAXException, IOException, ParserConfigurationException {
+		return response != null && BooleanUtils.toBoolean(xml.getTagText(xml.parse(response), "return"));
+	}
+
+	/**
+	 * Check the given snapshot matches to the criteria : name, id, or one of its volume id.
+	 */
+	private boolean matches(final Snapshot snapshot, final String criteria) {
+		return StringUtils.containsIgnoreCase(StringUtils.defaultIfEmpty(snapshot.getName(), ""), criteria)
+				|| StringUtils.containsIgnoreCase(snapshot.getId(), criteria)
+				|| snapshot.getVolumes().stream().anyMatch(v -> StringUtils.containsIgnoreCase(v.getId(), criteria));
+	}
+
+	/**
+	 * Update the given task as finished remotely
+	 */
+	private void setFinishedRemote(final VmSnapshotStatus task) {
+		task.setFinishedRemote(true);
+		task.setDone(3);
+		task.setPhase("checking-availability");
+	}
+
+	/**
+	 * Mark the given snapshot as unavailable with the given status
+	 */
+	private void setPending(final Snapshot snapshot, final String statusText) {
+		snapshot.setPending(true);
+		snapshot.setAvailable(false);
+		snapshot.setStatusText(statusText);
+	}
+
+	/**
 	 * Convert a XML AMI node to a {@link Snapshot} instance.
 	 */
 	private Snapshot toAmi(final Element element) {
@@ -474,20 +476,35 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Request IAM provider to get user details.
-	 * 
-	 * @param login
-	 *            The requested user login.
-	 * @return Either the resolved instance, either <code>null</code> when not found.
+	 * Convert a task to an unavailable snapshot
 	 */
-	protected SimpleUser getUser(final String login) {
-		return Optional.ofNullable(iamProvider[0].getConfiguration().getUserRepository().findById(login))
-				.orElseGet(() -> {
-					// Untracked user
-					final UserOrg user = new UserOrg();
-					user.setId(login);
-					return user;
-				});
+	private Snapshot toAmi(final VmSnapshotStatus task, final String statusText) {
+		final Snapshot taskAsSnapshot = new Snapshot();
+		taskAsSnapshot.setId(task.getSnapshotInternalId());
+		taskAsSnapshot.setAuthor(getUser(task.getAuthor()));
+		taskAsSnapshot.setDate(task.getStart());
+		taskAsSnapshot.setStopRequested(task.isStop());
+
+		// Override the status since this AMI is not really GA
+		setPending(taskAsSnapshot, StringUtils.defaultString(statusText, task.getStatusText()));
+		return taskAsSnapshot;
+	}
+
+	/**
+	 * Parse <code>DescribeImagesResponse</code> response to {@link Snapshot} list.
+	 *
+	 * @param amisAsXml
+	 *            AMI descriptions as XML.
+	 * @return The parsed AMI as {@link Snapshot}.
+	 */
+	private List<Snapshot> toAmis(final String amisAsXml)
+			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
+		final NodeList items = xml.getXpath(
+				StringUtils.defaultIfEmpty(amisAsXml,
+						"<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
+				"/DescribeImagesResponse/imagesSet/item");
+		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toAmi((Element) n))
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -506,22 +523,5 @@ public class VmAwsSnapshotResource {
 		});
 
 		return snapshot;
-	}
-
-	/**
-	 * Parse <code>DescribeImagesResponse</code> response to {@link Snapshot} list.
-	 *
-	 * @param amisAsXml
-	 *            AMI descriptions as XML.
-	 * @return The parsed AMI as {@link Snapshot}.
-	 */
-	private List<Snapshot> toAmis(final String amisAsXml)
-			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		final NodeList items = xml.getXpath(
-				StringUtils.defaultIfEmpty(amisAsXml,
-						"<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
-				"/DescribeImagesResponse/imagesSet/item");
-		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toAmi((Element) n))
-				.collect(Collectors.toList());
 	}
 }
