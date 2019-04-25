@@ -69,6 +69,8 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	private static final String MOCK_URL = "http://localhost:" + MOCK_PORT + "/mock";
 
+	private static int counterQuery = 0;
+
 	private VmAwsPluginResource resource;
 
 	@Autowired
@@ -489,8 +491,6 @@ public class VmAwsPluginResourceTest extends AbstractServerTest {
 				HttpStatus.SC_OK, IOUtils.toString(
 						new ClassPathResource("mock-server/aws/describe-12345678.xml").getInputStream(), "UTF-8"));
 	}
-
-	private static int counterQuery = 0;
 
 	private VmAwsPluginResource mockEc2(final String region, final String body, final int status,
 			final String response) {
