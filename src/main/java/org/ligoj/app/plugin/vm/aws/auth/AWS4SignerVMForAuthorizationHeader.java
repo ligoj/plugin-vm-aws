@@ -22,8 +22,8 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 	/**
 	 * format strings for the date/time and date stamps required during signing
 	 **/
-	public static final String ISO8601_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
-	public static final String DATE_FORMAT = "yyyyMMdd";
+	private static final String ISO8601_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
+	private static final String DATE_FORMAT = "yyyyMMdd";
 
 	/**
 	 * clock used to date query

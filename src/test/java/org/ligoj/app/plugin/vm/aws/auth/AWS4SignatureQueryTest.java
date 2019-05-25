@@ -12,43 +12,43 @@ import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBui
 /**
  * Test class of {@link AWS4SignatureQuery}
  */
-public class AWS4SignatureQueryTest {
+class AWS4SignatureQueryTest {
 
 	@Test
-	public void builderNoHost() {
+	void builderNoHost() {
 		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().build());
 	}
 
 	@Test
-	public void builderNoPath() {
+	void builderNoPath() {
 		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().build());
 	}
 
 	@Test
-	public void builderNoService() {
+	void builderNoService() {
 		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().path("/").build());
 	}
 
 	@Test
-	public void builderNoRegion() {
+	void builderNoRegion() {
 		Assertions.assertThrows(NullPointerException.class,
 				() -> AWS4SignatureQuery.builder().path("/").service("ec2").build());
 	}
 
 	@Test
-	public void builderNoAccessKey() {
+	void builderNoAccessKey() {
 		Assertions.assertThrows(NullPointerException.class,
 				() -> AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").build());
 	}
 
 	@Test
-	public void builderNoSecretKey() {
+	void builderNoSecretKey() {
 		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().path("/").service("ec2")
 				.region("eu-west-1").accessKey("--access-key--").build());
 	}
 
 	@Test
-	public void builder() {
+	void builder() {
 		AWS4SignatureQueryBuilder builder = AWS4SignatureQuery.builder();
 		builder.toString();
 		builder = builderCommon(builder);
@@ -59,7 +59,7 @@ public class AWS4SignatureQueryTest {
 	}
 
 	@Test
-	public void builderNullMethod() {
+	void builderNullMethod() {
 		AWS4SignatureQueryBuilder builder = AWS4SignatureQuery.builder();
 		builder.toString();
 		builder = builderCommon(builder);

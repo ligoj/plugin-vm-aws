@@ -94,8 +94,7 @@ public class VmAwsSnapshotResource {
 	 * finished without error at client side, and that AMI can be found by its identifier and yet not listed with tag
 	 * filters.
 	 * 
-	 * @param task
-	 *            The task to complete.
+	 * @param task The task to complete.
 	 */
 	protected void completeStatus(final VmSnapshotStatus task) {
 		if (task.getOperation() == SnapshotOperation.CREATE && task.getSnapshotInternalId() != null) {
@@ -122,9 +121,11 @@ public class VmAwsSnapshotResource {
 	 * Create a new AMI from the given subscription. First, the name is fixed and based from the subscription and the
 	 * current date, then AMI is created, then tagged.
 	 * 
-	 * @param task
-	 *            A transient instance of the related task, and also linked to a subscription. Note it is a read-only
-	 *            view.
+	 * @param task A transient instance of the related task, and also linked to a subscription. Note it is a read-only
+	 *             view.
+	 * @throws IOException                  When VM definition XML cannot be retrieved.
+	 * @throws SAXException                 When the XML validation failed.
+	 * @throws ParserConfigurationException When the XML parsing failed.
 	 */
 	protected void create(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
 		final int subscription = task.getLocked().getId();
@@ -178,15 +179,11 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Delete a snapshot.
 	 * 
-	 * @param task
-	 *            A transient instance of the related task, and also linked to a subscription. Note it is a read-only
-	 *            view.
-	 * @throws ParserConfigurationException
-	 *             XML parsing failed.
-	 * @throws IOException
-	 *             XML reading failed by the parser.
-	 * @throws SAXException
-	 *             XML processing failed.
+	 * @param task A transient instance of the related task, and also linked to a subscription. Note it is a read-only
+	 *             view.
+	 * @throws ParserConfigurationException XML parsing failed.
+	 * @throws IOException                  XML reading failed by the parser.
+	 * @throws SAXException                 XML processing failed.
 	 */
 	public void delete(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
 		final int subscription = task.getLocked().getId();
@@ -249,11 +246,9 @@ public class VmAwsSnapshotResource {
 	 * work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay
 	 * between CreateImage and its visibility.
 	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param filter
-	 *            The additional "DescribeImages" filters. The base filter is "Owner.1=self". When <code>null</code> or
-	 *            empty, all owned AMIs are returned.
+	 * @param subscription The related subscription identifier.
+	 * @param filter       The additional "DescribeImages" filters. The base filter is "Owner.1=self". When
+	 *                     <code>null</code> or empty, all owned AMIs are returned.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
 	private List<Snapshot> findAll(final int subscription, final String filter) {
@@ -273,11 +268,10 @@ public class VmAwsSnapshotResource {
 	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
 	 * filter, there is delay between CreateImage and its visibility.
 	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param criteria
-	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
-	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
+	 * @param subscription The related subscription identifier.
+	 * @param criteria     The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the
+	 *                     AMI's name or one of its volume snapshots identifier machine name and identifier. Not
+	 *                     <code>null</code>.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
 	public List<Snapshot> findAllByNameOrId(final int subscription, final String criteria) {
@@ -289,13 +283,11 @@ public class VmAwsSnapshotResource {
 	 * "DescribeImages" does not work exactly the same way when <code>ImageId.N</code> filter is enabled. Without this
 	 * filter, there is delay between CreateImage and its visibility.
 	 *
-	 * @param subscription
-	 *            The related subscription identifier.
-	 * @param criteria
-	 *            The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the AMI's
-	 *            name or one of its volume snapshots identifier machine name and identifier. Not <code>null</code>.
-	 * @param task
-	 *            The current task used to prepend the globally visible AMIs.
+	 * @param subscription The related subscription identifier.
+	 * @param criteria     The search criteria. Case is insensitive. The criteria try to match the AMI's identifier, the
+	 *                     AMI's name or one of its volume snapshots identifier machine name and identifier. Not
+	 *                     <code>null</code>.
+	 * @param task         The current task used to prepend the globally visible AMIs.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
 	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
@@ -320,8 +312,7 @@ public class VmAwsSnapshotResource {
 	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay between CreateImage and
 	 * its visibility.
 	 *
-	 * @param subscription
-	 *            The related subscription identifier.
+	 * @param subscription The related subscription identifier.
 	 * @return Matching AMIs ordered by descending creation date.
 	 */
 	private List<Snapshot> findAllBySubscription(final int subscription) {
@@ -339,10 +330,8 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Return the AMI corresponding to the given task and that is not in the given snapshot list.
 	 * 
-	 * @param snapshots
-	 *            The snapshots list to check.
-	 * @param task
-	 *            The task to check.
+	 * @param snapshots The snapshots list to check.
+	 * @param task      The task to check.
 	 * @return The not yet globally visible AMI or <code>null</code>.
 	 */
 	private Snapshot findUnlistedAmi(final List<Snapshot> snapshots, final VmSnapshotStatus task) {
@@ -378,8 +367,7 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Request IAM provider to get user details.
 	 * 
-	 * @param login
-	 *            The requested user login.
+	 * @param login The requested user login.
 	 * @return Either the resolved instance, either <code>null</code> when not found.
 	 */
 	protected SimpleUser getUser(final String login) {
@@ -395,15 +383,11 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Indicate the AWS response is <code>true</code>.
 	 * 
-	 * @param response
-	 *            The AWS response.
+	 * @param response The AWS response.
 	 * @return <code>true</code> when the AWS response succeed.
-	 * @throws ParserConfigurationException
-	 *             XML parsing failed.
-	 * @throws IOException
-	 *             XML reading failed by the parser.
-	 * @throws SAXException
-	 *             XML processing failed.
+	 * @throws ParserConfigurationException XML parsing failed.
+	 * @throws IOException                  XML reading failed by the parser.
+	 * @throws SAXException                 XML processing failed.
 	 */
 	private boolean isReturnTrue(final String response) throws SAXException, IOException, ParserConfigurationException {
 		return response != null && BooleanUtils.toBoolean(xml.getTagText(xml.parse(response), "return"));
@@ -493,8 +477,7 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Parse <code>DescribeImagesResponse</code> response to {@link Snapshot} list.
 	 *
-	 * @param amisAsXml
-	 *            AMI descriptions as XML.
+	 * @param amisAsXml AMI descriptions as XML.
 	 * @return The parsed AMI as {@link Snapshot}.
 	 */
 	private List<Snapshot> toAmis(final String amisAsXml)

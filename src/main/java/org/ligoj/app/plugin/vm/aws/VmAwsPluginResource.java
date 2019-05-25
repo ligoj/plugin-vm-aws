@@ -192,6 +192,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Fill the given VM networks with its network details.
+	 * 
+	 * @param networkNode The network XML node.
+	 * @param networks    The target collection.
 	 */
 	protected void addNetworkDetails(final Element networkNode, final Collection<VmNetwork> networks) {
 		// Private IP (optional)
@@ -232,8 +235,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Check AWS connection and account.
 	 *
-	 * @param parameters
-	 *            The subscription parameters.
+	 * @param parameters The subscription parameters.
 	 * @return <code>true</code> if AWS connection is up
 	 */
 	@Override
@@ -280,15 +282,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Find the virtual machines matching to the given criteria. Look into virtual machine name and identifier.
 	 *
-	 * @param node
-	 *            the node to be tested with given parameters.
-	 * @param criteria
-	 *            the search criteria. Case is insensitive.
-	 * @param uriInfo
-	 *            Additional subscription parameters.
+	 * @param node     the node to be tested with given parameters.
+	 * @param criteria the search criteria. Case is insensitive.
+	 * @param uriInfo  Additional subscription parameters.
 	 * @return virtual machines.
-	 * @throws Exception
-	 *             When AWS content cannot be read.
+	 * @throws Exception When AWS content cannot be read.
 	 */
 	@GET
 	@Path("{node:service:.+}/{criteria}")
@@ -320,16 +318,12 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Get all instances visible for given AWS access key.
 	 *
-	 * @param parameters
-	 *            Subscription parameters.
-	 * @param filter
-	 *            Optional instance identifier to find. For sample :
-	 *            "&Filter.1.Name=instance-id&Filter.1.Value.1=my_insance_id"
-	 * @param parser
-	 *            The mapper from {@link Element} to {@link AwsVm}.
+	 * @param parameters Subscription parameters.
+	 * @param filter     Optional instance identifier to find. For sample :
+	 *                   "&Filter.1.Name=instance-id&Filter.1.Value.1=my_insance_id"
+	 * @param parser     The mapper from {@link Element} to {@link AwsVm}.
 	 * @return The matching instances.
-	 * @throws Exception
-	 *             When AWS content cannot be read.
+	 * @throws Exception When AWS content cannot be read.
 	 */
 	private List<AwsVm> getDescribeInstances(final Map<String, String> parameters, final String filter,
 			final Function<Element, AwsVm> parser) throws Exception {
@@ -359,8 +353,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Return the tag "name" value or <code>null</code>
 	 *
-	 * @param record
-	 *            The XML element.
+	 * @param record The XML element.
 	 * @return The "name" tag text value of <code>null</code> when not found.
 	 */
 	private String getName(final Element record) {
@@ -370,8 +363,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Return the region from the subscription's parameters or the the default one.
 	 *
-	 * @param parameters
-	 *            The subscription parameters.
+	 * @param parameters The subscription parameters.
 	 * @return The right region to use. Never <code>null</code>.
 	 */
 	private String getRegion(final Map<String, String> parameters) {
@@ -409,8 +401,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Log the instance state transition and indicates the transition was a success.
 	 *
-	 * @param response
-	 *            the EC2 response markup.
+	 * @param response the EC2 response markup.
 	 * @return <code>true</code> when the transition succeed.
 	 */
 	private boolean logTransitionState(final String response)
@@ -428,11 +419,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * Create Curl request for AWS service. Initialize default values for awsAccessKey, awsSecretKey and regionName and
 	 * compute signature.
 	 *
-	 * @param builder
-	 *            {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers, parameters,
-	 *            host, ...)
-	 * @param parameters
-	 *            The subscription's parameters.
+	 * @param builder    {@link AWS4SignatureQueryBuilder} initialized with values used for this call (headers,
+	 *                   parameters, host, ...)
+	 * @param parameters The subscription's parameters.
 	 * @return initialized request
 	 */
 	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder builder, final Map<String, String> parameters) {
@@ -450,10 +439,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Execute an EC2 query using the given subscription parameters.
 	 *
-	 * @param subscription
-	 *            The subscription holding the parameters.
-	 * @param queryProvider
-	 *            The query string provider that would be placed into the AWS body.
+	 * @param subscription  The subscription holding the parameters.
+	 * @param queryProvider The query string provider that would be placed into the AWS body.
 	 *
 	 * @return The response. <code>null</code> when failed.
 	 */
@@ -465,10 +452,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Execute an EC2 query using the given subscription parameters.
 	 *
-	 * @param parameters
-	 *            The subscription's parameters.
-	 * @param query
-	 *            The query string that would be placed into the AWS body.
+	 * @param parameters The subscription's parameters.
+	 * @param query      The query string that would be placed into the AWS body.
 	 *
 	 * @return The response. <code>null</code> when failed.
 	 */
@@ -490,8 +475,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Return the URL from a query.
 	 *
-	 * @param query
-	 *            Source {@link AWS4SignatureQuery}
+	 * @param query Source {@link AWS4SignatureQuery}
 	 * @return The base host URL from a query.
 	 */
 	protected String toUrl(final AWS4SignatureQuery query) {
@@ -547,8 +531,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	/**
 	 * Check AWS connection and account.
 	 *
-	 * @param parameters
-	 *            Subscription parameters.
+	 * @param parameters Subscription parameters.
 	 * @return <code>true</code> if AWS connection is up
 	 */
 	protected boolean validateAccess(final Map<String, String> parameters) {

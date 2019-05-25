@@ -26,7 +26,7 @@ public class AWS4SignerVMForAuthorizationHeaderTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery)}.
 	 */
 	@Test
 	public void testComputeSignature() {
@@ -41,7 +41,7 @@ public class AWS4SignerVMForAuthorizationHeaderTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery)}.
 	 */
 	@Test
 	public void testComputeSignatureWithBody() {

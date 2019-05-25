@@ -22,18 +22,16 @@ import org.ligoj.bootstrap.core.resource.TechnicalException;
  */
 public abstract class AWS4SignerBase {
 
-	public static final String UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
-	public static final String SCHEME = "AWS4";
-	public static final String ALGORITHM = "HMAC-SHA256";
-	public static final String TERMINATOR = "aws4_request";
+	protected static final String SCHEME = "AWS4";
+	protected static final String ALGORITHM = "HMAC-SHA256";
+	protected static final String TERMINATOR = "aws4_request";
 	private URLCodec urlCodec = new URLCodec();
 
 	/**
 	 * Returns the canonical collection of header names that will be included in the signature. For AWS4, all header
 	 * names must be included in the process in sorted canonicalized order.
 	 * 
-	 * @param headers
-	 *            Current headers.
+	 * @param headers Current headers.
 	 * @return Appended headers names only.
 	 */
 	protected String getCanonicalizeHeaderNames(final Map<String, String> headers) {
@@ -45,8 +43,7 @@ public abstract class AWS4SignerBase {
 	 * Computes the canonical headers with values for the request. For AWS4, all headers must be included in the signing
 	 * process.
 	 * 
-	 * @param headers
-	 *            Current headers.
+	 * @param headers Current headers.
 	 * @return Appended headers names and values.
 	 */
 	protected String getCanonicalizedHeaderString(final Map<String, String> headers) {
@@ -65,16 +62,12 @@ public abstract class AWS4SignerBase {
 	/**
 	 * Returns the canonical request string to go into the signer process; this consists of several canonical sub-parts.
 	 * 
-	 * @param path
-	 *            URL path.
-	 * @param method
-	 *            The HTTP method.
-	 * @param headerNames
-	 *            Canonicalized header names.
-	 * @param headers
-	 *            Canonicalized header names and values.
-	 * @param bodyHash
-	 *            Hash digest of the body..
+	 * @param path        URL path.
+	 * @param method      The HTTP method.
+	 * @param parameters  The query parameters.
+	 * @param headerNames Canonicalized header names.
+	 * @param headers     Canonicalized header names and values.
+	 * @param bodyHash    Hash digest of the body..
 	 * @return The canonicalized string request without body.
 	 */
 	protected String getCanonicalRequest(final String path, final String method, final String parameters,
@@ -86,8 +79,7 @@ public abstract class AWS4SignerBase {
 	/**
 	 * Returns the canonicalized resource path for the service endpoint.
 	 * 
-	 * @param path
-	 *            URL path.
+	 * @param path URL path.
 	 * @return The canonicalized URL request.
 	 */
 	protected String getCanonicalizedResourcePath(final String path) {
@@ -105,8 +97,7 @@ public abstract class AWS4SignerBase {
 	 * The canonicalized query string is formed by first sorting all the query string parameters, then URI encoding both
 	 * the key and value and then joining them, in order, separating key value pairs with an '&amp;'.
 	 *
-	 * @param parameters
-	 *            The query string parameters to be canonicalized.
+	 * @param parameters The query string parameters to be canonicalized.
 	 *
 	 * @return A canonicalized form for the specified query string parameters.
 	 */
@@ -123,12 +114,9 @@ public abstract class AWS4SignerBase {
 	/**
 	 * return the string which must be signed
 	 * 
-	 * @param dateTime
-	 *            sign date
-	 * @param scope
-	 *            scope
-	 * @param canonicalRequest
-	 *            canonical Request
+	 * @param dateTime         sign date
+	 * @param scope            scope
+	 * @param canonicalRequest canonical Request
 	 * @return string to sign
 	 */
 	protected String getStringToSign(final String dateTime, final String scope, final String canonicalRequest) {
@@ -138,8 +126,7 @@ public abstract class AWS4SignerBase {
 	/**
 	 * Hashes the string contents (assumed to be UTF-8) using the SHA-256 algorithm.
 	 * 
-	 * @param text
-	 *            Text to hash.
+	 * @param text Text to hash.
 	 * @return Hashed text.
 	 */
 	public String hash(final String text) {
@@ -150,10 +137,8 @@ public abstract class AWS4SignerBase {
 	/**
 	 * do a HMac sha256 sign
 	 * 
-	 * @param stringData
-	 *            data as string
-	 * @param key
-	 *            key
+	 * @param stringData data as string
+	 * @param key        key
 	 * @return signature
 	 */
 	protected byte[] sign(final String stringData, final byte[] key) {
