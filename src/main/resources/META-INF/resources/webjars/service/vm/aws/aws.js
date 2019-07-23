@@ -18,10 +18,10 @@ define(function () {
 			var result = '';
 			if (subscription.parameters && subscription.parameters['service:vm:aws:account']) {
 				// Add console login page
-				result += current.$super('renderServicelink')('sign-in-alt', 'https://'+ subscription.parameters['service:vm:aws:account'] + '.signin.aws.amazon.com/console', 'service:vm:aws:signin', null, ' target="_blank"');
+				result += current.$super('renderServiceLink')('sign-in-alt', 'https://'+ subscription.parameters['service:vm:aws:account'] + '.signin.aws.amazon.com/console', 'service:vm:aws:signin', null, ' target="_blank"');
 			}
 			if (subscription.parameters && subscription.parameters['service:vm:aws:region'] && subscription.parameters['service:vm:aws:id']) {
-				result += current.$super('renderServicelink')('desktop', 'https://'+ subscription.parameters['service:vm:aws:region'] + '.console.aws.amazon.com/ec2/v2/home?region=' + subscription.parameters['service:vm:aws:region'] + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"');
+				result += current.$super('renderServiceLink')('desktop', 'https://'+ subscription.parameters['service:vm:aws:region'] + '.console.aws.amazon.com/ec2/v2/home?region=' + subscription.parameters['service:vm:aws:region'] + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"');
 			}
 			return result;
 		},
@@ -38,7 +38,7 @@ define(function () {
 			if (subscription.parameters && subscription.parameters['service:vm:aws:id'] && typeof subscription.parameters['service:vm:aws:region'] === 'undefined' && vm.az && $features.has('.feature.console').length === 0) {
 				// Extract the region from the AZ
 				var region = vm.az.substring(0, vm.az.length - 1);
-				$features.find('.details').before($(current.$super('renderServicelink')('desktop', 'https://'+ region + '.console.aws.amazon.com/ec2/v2/home?region=' + region + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"')).addClass('console'));
+				$features.find('.details').before($(current.$super('renderServiceLink')('desktop', 'https://'+ region + '.console.aws.amazon.com/ec2/v2/home?region=' + region + '#Instances:search=' + subscription.parameters['service:vm:aws:id'], 'service:vm:aws:console', null, ' target="_blank"')).addClass('console'));
 			}
 		},
 
