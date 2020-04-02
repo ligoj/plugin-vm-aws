@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 
@@ -186,15 +185,15 @@ public class VmAwsSnapshotResource {
 	 * @throws SAXException                 XML processing failed.
 	 */
 	public void delete(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
-		final int subscription = task.getLocked().getId();
+		final var subscription = task.getLocked().getId();
 		// Initiate the task, validate the AMI to delete
 		snapshotResource.nextStep(subscription, s -> {
 			s.setPhase("searching-ami");
 			s.setWorkload(3);
 		});
 
-		final String amiId = task.getSnapshotInternalId();
-		final Snapshot ami = findById(subscription, amiId);
+		final var amiId = task.getSnapshotInternalId();
+		final var ami = findById(subscription, amiId);
 
 		if (ami == null) {
 			// AMI has been deleted of never been correctly created
@@ -224,7 +223,7 @@ public class VmAwsSnapshotResource {
 			s.setPhase("deleting-snapshots");
 			s.setDone(2);
 		});
-		final StringBuilder query = new StringBuilder();
+		final var query = new StringBuilder();
 		IntStream.range(0, ami.getVolumes().size())
 				.forEach(i -> query.append("&SnapshotId." + (i + 1) + "=" + ami.getVolumes().get(i).getId()));
 		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeleteSnapshot" + query.toString()))) {
@@ -292,7 +291,7 @@ public class VmAwsSnapshotResource {
 	 */
 	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
 			final VmSnapshotStatus task) {
-		final List<Snapshot> snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
+		final var snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
 				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
 
 		// Add the current task to the possible running snapshots
@@ -424,7 +423,7 @@ public class VmAwsSnapshotResource {
 	 * Convert a XML AMI node to a {@link Snapshot} instance.
 	 */
 	private Snapshot toAmi(final Element element) {
-		final Snapshot snapshot = new Snapshot();
+		final var snapshot = new Snapshot();
 		snapshot.setId(xml.getTagText(element, "imageId"));
 		snapshot.setName(xml.getTagText(element, "name"));
 		snapshot.setDescription(StringUtils.trimToNull(xml.getTagText(element, "description")));
@@ -432,17 +431,17 @@ public class VmAwsSnapshotResource {
 		snapshot.setAvailable("available".equals(snapshot.getStatusText()));
 		snapshot.setPending("pending".equals(snapshot.getStatusText()));
 
-		final String date = xml.getTagText(element, "creationDate");
-		final XPath xPath = xml.xpathFactory.newXPath();
+		final var date = xml.getTagText(element, "creationDate");
+		final var xPath = xml.xpathFactory.newXPath();
 		try {
 			// Author
-			final NodeList tags = (NodeList) xPath.compile("tagSet/item").evaluate(element, XPathConstants.NODESET);
+			final var tags = (NodeList) xPath.compile("tagSet/item").evaluate(element, XPathConstants.NODESET);
 			snapshot.setAuthor(IntStream.range(0, tags.getLength()).mapToObj(tags::item)
 					.filter(t -> TAG_AUDIT.equals(xml.getTagText((Element) t, "key")))
 					.map(t -> xml.getTagText((Element) t, "value")).map(this::getUser).findAny().orElse(null));
 
 			// Volumes
-			final NodeList volumes = (NodeList) xPath.compile("blockDeviceMapping/item").evaluate(element,
+			final var volumes = (NodeList) xPath.compile("blockDeviceMapping/item").evaluate(element,
 					XPathConstants.NODESET);
 			snapshot.setVolumes(IntStream.range(0, volumes.getLength()).mapToObj(volumes::item)
 					.map(v -> toVolume((Element) v)).filter(v -> v.getId() != null).collect(Collectors.toList()));
@@ -463,7 +462,7 @@ public class VmAwsSnapshotResource {
 	 * Convert a task to an unavailable snapshot
 	 */
 	private Snapshot toAmi(final VmSnapshotStatus task, final String statusText) {
-		final Snapshot taskAsSnapshot = new Snapshot();
+		final var taskAsSnapshot = new Snapshot();
 		taskAsSnapshot.setId(task.getSnapshotInternalId());
 		taskAsSnapshot.setAuthor(getUser(task.getAuthor()));
 		taskAsSnapshot.setDate(task.getStart());
@@ -482,7 +481,7 @@ public class VmAwsSnapshotResource {
 	 */
 	private List<Snapshot> toAmis(final String amisAsXml)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		final NodeList items = xml.getXpath(
+		final var items = xml.getXpath(
 				StringUtils.defaultIfEmpty(amisAsXml,
 						"<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
 				"/DescribeImagesResponse/imagesSet/item");
@@ -494,11 +493,11 @@ public class VmAwsSnapshotResource {
 	 * Convert a XML AMI mapping device to {@link VolumeSnapshot} instance.
 	 */
 	private VolumeSnapshot toVolume(final Element element) {
-		final VolumeSnapshot snapshot = new VolumeSnapshot();
+		final var snapshot = new VolumeSnapshot();
 		snapshot.setName(xml.getTagText(element, "deviceName"));
 
 		// Only for EBS
-		final NodeList ebs = element.getElementsByTagName("ebs");
+		final var ebs = element.getElementsByTagName("ebs");
 		IntStream.range(0, ebs.getLength()).mapToObj(ebs::item).findFirst().ifPresent(v -> {
 			final Element se = (Element) v;
 			snapshot.setId(xml.getTagText(se, "snapshotId"));
