@@ -112,9 +112,9 @@ class AWS4SignerBaseTest {
 	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
-	void testGetCanonicalizedResourcePathEncodingException() throws Exception {
-		final AWS4SignerBase signer = new AWS4SignerVMForAuthorizationHeader();
-		final URLCodec urlCodec = Mockito.mock(URLCodec.class);
+	void testGetCanonicalizedResourcePathEncodingException() throws EncoderException {
+		final var signer = new AWS4SignerVMForAuthorizationHeader();
+		final var urlCodec = Mockito.mock(URLCodec.class);
 		ReflectionTestUtils.setField(signer, "urlCodec", urlCodec);
 		Mockito.when(urlCodec.encode(ArgumentMatchers.anyString())).thenThrow(new EncoderException());
 		Assertions.assertEquals("Error during resource path encoding", Assertions.assertThrows(TechnicalException.class, () -> {
@@ -146,8 +146,8 @@ class AWS4SignerBaseTest {
 	 */
 	@Test
 	void testGetCanonicalizedQueryStringException() throws EncoderException {
-		final AWS4SignerBase signer = new AWS4SignerVMForAuthorizationHeader();
-		final URLCodec urlCodec = Mockito.mock(URLCodec.class);
+		final var signer = new AWS4SignerVMForAuthorizationHeader();
+		final var urlCodec = Mockito.mock(URLCodec.class);
 		ReflectionTestUtils.setField(signer, "urlCodec", urlCodec);
 		Mockito.when(urlCodec.encode(ArgumentMatchers.anyString())).thenThrow(new EncoderException());
 		Assertions.assertEquals("Error during parameters encoding", Assertions.assertThrows(TechnicalException.class, () -> {

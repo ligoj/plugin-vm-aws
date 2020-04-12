@@ -15,41 +15,8 @@ import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBui
 class AWS4SignatureQueryTest {
 
 	@Test
-	void builderNoHost() {
-		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().build());
-	}
-
-	@Test
-	void builderNoPath() {
-		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().build());
-	}
-
-	@Test
-	void builderNoService() {
-		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().path("/").build());
-	}
-
-	@Test
-	void builderNoRegion() {
-		Assertions.assertThrows(NullPointerException.class,
-				() -> AWS4SignatureQuery.builder().path("/").service("ec2").build());
-	}
-
-	@Test
-	void builderNoAccessKey() {
-		Assertions.assertThrows(NullPointerException.class,
-				() -> AWS4SignatureQuery.builder().path("/").service("ec2").region("eu-west-1").build());
-	}
-
-	@Test
-	void builderNoSecretKey() {
-		Assertions.assertThrows(NullPointerException.class, () -> AWS4SignatureQuery.builder().path("/").service("ec2")
-				.region("eu-west-1").accessKey("--access-key--").build());
-	}
-
-	@Test
 	void builder() {
-		AWS4SignatureQueryBuilder builder = AWS4SignatureQuery.builder();
+		var builder = AWS4SignatureQuery.builder();
 		builder.toString();
 		builder = builderCommon(builder);
 		builder = builder.method("GET");
@@ -58,18 +25,8 @@ class AWS4SignatureQueryTest {
 		Assertions.assertEquals("ec2.eu-west-1.amazonaws.com", builder.service("ec2").build().getHost());
 	}
 
-	@Test
-	void builderNullMethod() {
-		AWS4SignatureQueryBuilder builder = AWS4SignatureQuery.builder();
-		builder.toString();
-		builder = builderCommon(builder);
-		AWS4SignatureQueryBuilder builder0 = builder.method(null);
-		builder0.toString();
-		Assertions.assertThrows(NullPointerException.class, () -> builder0.build());
-	}
-
 	private AWS4SignatureQueryBuilder builderCommon(AWS4SignatureQueryBuilder builderParam) {
-		AWS4SignatureQueryBuilder builder = builderParam;
+		var builder = builderParam;
 		builder.toString();
 		builder = builder.path("/");
 		builder.toString();

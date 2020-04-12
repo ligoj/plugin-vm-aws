@@ -535,10 +535,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return <code>true</code> if AWS connection is up
 	 */
 	protected boolean validateAccess(final Map<String, String> parameters) {
-		// Call S3 ls service
-		// TODO Use EC2 instead of S3
-		try (CurlProcessor curl = new CurlProcessor()) {
-			return curl.process(newRequest(AWS4SignatureQuery.builder().method("GET").service("s3"), parameters));
+		// Call STS service
+		final var query = "Action=GetCallerIdentity&Version=2011-06-15";
+		final var builder = AWS4SignatureQuery.builder().service("sts").body(query);
+		try (var curl = new CurlProcessor()) {
+			return curl.process(newRequest(builder, parameters));
 		}
 	}
 
