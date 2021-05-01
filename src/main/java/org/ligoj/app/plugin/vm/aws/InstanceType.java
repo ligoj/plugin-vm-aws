@@ -22,7 +22,7 @@ public class InstanceType {
 	 * vCPU
 	 */
 	private int cpu;
-	
+
 	/**
 	 * RAM in Go
 	 */

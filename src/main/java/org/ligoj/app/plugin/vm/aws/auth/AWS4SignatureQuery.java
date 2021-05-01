@@ -73,7 +73,7 @@ public class AWS4SignatureQuery {
 
 	/**
 	 * Return the corresponding host.
-	 * 
+	 *
 	 * @return The corresponding host.
 	 */
 	public String getHost() {

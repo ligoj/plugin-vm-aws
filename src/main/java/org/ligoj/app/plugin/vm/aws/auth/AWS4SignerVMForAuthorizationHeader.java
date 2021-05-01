@@ -31,14 +31,11 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 	private Clock clock = Clock.systemUTC();
 
 	/**
-	 * Computes an AWS4 signature for a request, ready for inclusion as an
-	 * 'Authorization' header.
-	 * 
-	 * @param query
-	 *            the query
-	 * @return The computed authorization string for the request. This value needs
-	 *         to be set as the header 'Authorization' on the subsequent HTTP
-	 *         request.
+	 * Computes an AWS4 signature for a request, ready for inclusion as an 'Authorization' header.
+	 *
+	 * @param query the query
+	 * @return The computed authorization string for the request. This value needs to be set as the header
+	 *         'Authorization' on the subsequent HTTP request.
 	 */
 	public String computeSignature(final AWS4SignatureQuery query) {
 		// first get the date and time for the subsequent request, and convert
@@ -66,8 +63,8 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 		final var canonicalizedQueryParameters = getCanonicalizedQueryString(query.getQueryParameters());
 
 		// canonicalize the various components of the request
-		final var canonicalRequest = getCanonicalRequest(query.getPath(), query.getMethod(), canonicalizedQueryParameters,
-				canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
+		final var canonicalRequest = getCanonicalRequest(query.getPath(), query.getMethod(),
+				canonicalizedQueryParameters, canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
 
 		// construct the string to be signed
 		final var dateStamp = DateTimeFormatter.ofPattern(DATE_FORMAT).format(now);
@@ -86,7 +83,7 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 		final var signedHeadersAuthorizationHeader = "SignedHeaders=" + canonicalizedHeaderNames;
 		final var signatureAuthorizationHeader = "Signature=" + Hex.encodeHexString(signature);
 
-		return SCHEME + "-" + ALGORITHM + " " + credentialsAuthorizationHeader + ", " + signedHeadersAuthorizationHeader + ", "
-				+ signatureAuthorizationHeader;
+		return SCHEME + "-" + ALGORITHM + " " + credentialsAuthorizationHeader + ", " + signedHeadersAuthorizationHeader
+				+ ", " + signatureAuthorizationHeader;
 	}
 }

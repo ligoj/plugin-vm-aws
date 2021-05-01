@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -89,9 +88,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(2, snapshosts.size());
-		final Snapshot snapshot = checkAmiPart(snapshosts.get(0));
+		final var snapshot = checkAmiPart(snapshosts.get(0));
 		Assertions.assertNotNull(snapshot.getDate());
 		Assertions.assertNotNull(snapshot.getAuthor().getFirstName());
 	}
@@ -103,7 +102,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void findAllByNameOrIdTaskFinished() throws Exception {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setFinishedRemote(true);
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin");
@@ -111,7 +110,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(2, snapshosts.size());
 		checkAmiPart(snapshosts.get(0));
 	}
@@ -123,7 +122,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void findAllByNameOrIdTaskFailed() throws Exception {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setFinishedRemote(true);
 		status.setEnd(new Date());
 		status.setFailed(true);
@@ -133,7 +132,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshosts.size());
 		checkAmiPart(snapshosts.get(1));
 
@@ -152,14 +151,14 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void findAllByNameOrIdTaskFinishedLocallyNoAws() throws Exception {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshosts.size());
 		checkAmiPart(snapshosts.get(1));
 
@@ -178,14 +177,14 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void findAllByNameOrIdTaskFinishedJustListed() throws Exception {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all-with-00000004.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshosts.size());
 		checkAmiPart(snapshosts.get(1));
 
@@ -204,12 +203,12 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void findAllByNameOrIdTaskNoAmi() throws Exception {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setAuthor("ligoj-admin2");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshosts.size());
 		checkAmiPart(snapshosts.get(1));
 
@@ -230,19 +229,19 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshosts.size());
 		checkAmiPart(snapshosts.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		final Snapshot snapshot = snapshosts.get(0);
+		final var snapshot = snapshosts.get(0);
 		Assertions.assertEquals("ligoj-admin2", snapshot.getAuthor().getId());
 		Assertions.assertEquals("ami-00000004", snapshot.getId());
 		Assertions.assertTrue(snapshot.isPending());
@@ -257,7 +256,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void completeStatusNoAmiId() throws IOException {
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-empty.xml");
-		VmSnapshotStatus status = new VmSnapshotStatus();
+		var status = new VmSnapshotStatus();
 		Assertions.assertFalse(status.isFinished());
 		resource.completeStatus(status);
 		Assertions.assertFalse(status.isFinished());
@@ -271,7 +270,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		// Lookup by id failed
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-empty.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
@@ -298,7 +297,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		// Not yet listed
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
@@ -318,7 +317,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	 */
 	@Test
 	void completeStatusNotCreate() {
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
@@ -346,7 +345,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		// Not yet listed with correct tags
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all-with-00000004.xml");
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setEnd(new Date());
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
@@ -374,7 +373,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "snap-0a9e26b713aeec40e");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "snap-0a9e26b713aeec40e");
 		Assertions.assertEquals(1, snapshosts.size());
 		checkAmiPart(snapshosts.get(0));
 	}
@@ -384,7 +383,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "ami-00000001");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "ami-00000001");
 		Assertions.assertEquals(1, snapshosts.size());
 		checkAmiPart(snapshosts.get(0));
 	}
@@ -394,7 +393,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "sample-ligo2");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "sample-ligo2");
 		Assertions.assertEquals(1, snapshosts.size());
 		checkAmiPart(snapshosts.get(0));
 	}
@@ -404,7 +403,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all-invalid-date.xml");
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "n");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "n");
 		Assertions.assertEquals(2, snapshosts.size());
 		Assertions.assertEquals(0, checkAmiPart(snapshosts.get(1)).getDate().getTime());
 	}
@@ -416,12 +415,12 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		// Mock IAM
 		resource.iamProvider = new IamProvider[] { Mockito.mock(IamProvider.class) };
-		final IamConfiguration iamConfiguration = Mockito.mock(IamConfiguration.class);
+		final var iamConfiguration = Mockito.mock(IamConfiguration.class);
 		Mockito.doReturn(iamConfiguration).when(resource.iamProvider[0]).getConfiguration();
-		final IUserRepository userRepository = Mockito.mock(IUserRepository.class);
+		final var userRepository = Mockito.mock(IUserRepository.class);
 		Mockito.doReturn(userRepository).when(iamConfiguration).getUserRepository();
 
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "n");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "n");
 		Assertions.assertEquals(2, snapshosts.size());
 		Assertions.assertNull(checkAmiPart(snapshosts.get(0)).getAuthor().getCompany());
 	}
@@ -432,19 +431,19 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 				+ subscription, "mock-server/aws/describe-images-all-invalid-volume.xml");
 
 		// Only one volume snapshot match inside the AMI
-		final List<Snapshot> snapshosts = resource.findAllByNameOrId(subscription, "snap-");
+		final var snapshosts = resource.findAllByNameOrId(subscription, "snap-");
 		Assertions.assertEquals(1, snapshosts.size());
 		checkAmiPart(snapshosts.get(0));
 
 		// Without filter, the other AMI matches, and does not contains any volume snapshot (invalid)
-		final List<Snapshot> snapshostsNoFilter = resource.findAllByNameOrId(subscription, "");
+		final var snapshostsNoFilter = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(2, snapshostsNoFilter.size());
 		Assertions.assertEquals(0, snapshostsNoFilter.get(1).getVolumes().size());
 	}
 
 	@Test
 	void create() throws Exception {
-		final VmSnapshotStatus status = mockStatus();
+		final var status = mockStatus();
 		mockAws("Action=CreateImage&NoReboot=false&InstanceId=i-12345678&Name=ligoj-snapshot/" + subscription + "/"
 				+ new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(status.getStart())
 				+ "&Description=Snapshot+created+from+Ligoj", "mock-server/aws/create-images.xml");
@@ -458,7 +457,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void createNoReboot() throws Exception {
-		final VmSnapshotStatus status = mockStatus();
+		final var status = mockStatus();
 		status.setStop(false);
 		mockAws("Action=CreateImage&NoReboot=true&InstanceId=i-12345678&Name=ligoj-snapshot/" + subscription + "/"
 				+ new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(status.getStart())
@@ -482,7 +481,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void createAmiFail() throws Exception {
-		final VmSnapshotStatus status = mockStatus();
+		final var status = mockStatus();
 
 		// Main call
 		resource.create(status);
@@ -499,7 +498,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void deleteSearchingNotFound() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockDeleteStatus();
+		final var status = mockDeleteStatus();
 
 		// Main call
 		resource.delete(status);
@@ -516,7 +515,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void deleteDeregisteringFailed() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockDeleteStatus();
+		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004.xml");
 		checkDeregisteringFail(status);
@@ -524,7 +523,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void deleteDeregisteringReturnFalse() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockDeleteStatus();
+		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image-return-false.xml");
@@ -532,7 +531,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	}
 
 	private VmSnapshotStatus mockDeleteStatus() {
-		final VmSnapshotStatus status = mockStatus();
+		final var status = mockStatus();
 		status.setOperation(SnapshotOperation.DELETE);
 		status.setSnapshotInternalId("ami-00000004");
 		return status;
@@ -553,7 +552,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void deleteSnapshotsFail() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockDeleteStatus();
+		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
@@ -562,7 +561,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void deleteSnapshotsReturnFalse() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockDeleteStatus();
+		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
@@ -586,7 +585,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void delete() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockDeleteStatus();
+		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
@@ -605,7 +604,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void createTagsFail() throws SAXException, IOException, ParserConfigurationException {
-		final VmSnapshotStatus status = mockStatus();
+		final var status = mockStatus();
 		mockAws("Action=CreateImage&NoReboot=false&InstanceId=i-12345678&Name=ligoj-snapshot/" + subscription + "/"
 				+ new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(status.getStart())
 				+ "&Description=Snapshot+created+from+Ligoj", "mock-server/aws/create-images.xml");
@@ -614,7 +613,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	@Test
 	void createTagsFailReturnFalse() throws Exception {
-		final VmSnapshotStatus status = mockStatus();
+		final var status = mockStatus();
 		mockAws("Action=CreateImage&NoReboot=false&InstanceId=i-12345678&Name=ligoj-snapshot/" + subscription + "/"
 				+ new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(status.getStart())
 				+ "&Description=Snapshot+created+from+Ligoj", "mock-server/aws/create-images.xml");
@@ -639,7 +638,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	}
 
 	private VmSnapshotStatus mockStatus() {
-		final VmSnapshotStatus status = new VmSnapshotStatus();
+		final var status = new VmSnapshotStatus();
 		status.setAuthor("ligoj-admin");
 		status.setStop(true);
 		status.setStart(DateUtils.newCalendar().getTime());
@@ -701,7 +700,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	}
 
 	private void mockAws(final String url, final String response) throws IOException {
-		final Map<String, String> parameters = subscriptionResource.getParametersNoCheck(subscription);
+		final var parameters = subscriptionResource.getParametersNoCheck(subscription);
 		Mockito.when(resource.resource.processEC2(ArgumentMatchers.eq(subscription),
 				ArgumentMatchers.argThat(new ArgumentMatcher<Function<Map<String, String>, String>>() {
 

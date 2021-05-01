@@ -29,10 +29,9 @@ public abstract class AWS4SignerBase {
 	private URLCodec urlCodec = new URLCodec();
 
 	/**
-	 * Returns the canonical collection of header names that will be included in the
-	 * signature. For AWS4, all header names must be included in the process in
-	 * sorted canonicalized order.
-	 * 
+	 * Returns the canonical collection of header names that will be included in the signature. For AWS4, all header
+	 * names must be included in the process in sorted canonicalized order.
+	 *
 	 * @param headers Current headers.
 	 * @return Appended headers names only.
 	 */
@@ -42,9 +41,9 @@ public abstract class AWS4SignerBase {
 	}
 
 	/**
-	 * Computes the canonical headers with values for the request. For AWS4, all
-	 * headers must be included in the signing process.
-	 * 
+	 * Computes the canonical headers with values for the request. For AWS4, all headers must be included in the signing
+	 * process.
+	 *
 	 * @param headers Current headers.
 	 * @return Appended headers names and values.
 	 */
@@ -62,9 +61,8 @@ public abstract class AWS4SignerBase {
 	}
 
 	/**
-	 * Returns the canonical request string to go into the signer process; this
-	 * consists of several canonical sub-parts.
-	 * 
+	 * Returns the canonical request string to go into the signer process; this consists of several canonical sub-parts.
+	 *
 	 * @param path        URL path.
 	 * @param method      The HTTP method.
 	 * @param parameters  The query parameters.
@@ -81,7 +79,7 @@ public abstract class AWS4SignerBase {
 
 	/**
 	 * Returns the canonicalized resource path for the service endpoint.
-	 * 
+	 *
 	 * @param path URL path.
 	 * @return The canonicalized URL request.
 	 */
@@ -95,12 +93,10 @@ public abstract class AWS4SignerBase {
 	}
 
 	/**
-	 * Examines the specified query string parameters and returns a canonicalized
-	 * form.
+	 * Examines the specified query string parameters and returns a canonicalized form.
 	 * <p>
-	 * The canonicalized query string is formed by first sorting all the query
-	 * string parameters, then URI encoding both the key and value and then joining
-	 * them, in order, separating key value pairs with an '&amp;'.
+	 * The canonicalized query string is formed by first sorting all the query string parameters, then URI encoding both
+	 * the key and value and then joining them, in order, separating key value pairs with an '&amp;'.
 	 *
 	 * @param parameters The query string parameters to be canonicalized.
 	 *
@@ -118,7 +114,7 @@ public abstract class AWS4SignerBase {
 
 	/**
 	 * return the string which must be signed
-	 * 
+	 *
 	 * @param dateTime         sign date
 	 * @param scope            scope
 	 * @param canonicalRequest canonical Request
@@ -130,7 +126,7 @@ public abstract class AWS4SignerBase {
 
 	/**
 	 * Hashes the string contents (assumed to be UTF-8) using the SHA-256 algorithm.
-	 * 
+	 *
 	 * @param text Text to hash.
 	 * @return Hashed text.
 	 */
@@ -141,7 +137,7 @@ public abstract class AWS4SignerBase {
 
 	/**
 	 * do a HMac sha256 sign
-	 * 
+	 *
 	 * @param stringData data as string
 	 * @param key        key
 	 * @return signature

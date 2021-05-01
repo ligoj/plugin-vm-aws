@@ -27,7 +27,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 
@@ -192,7 +191,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	/**
 	 * Fill the given VM networks with its network details.
-	 * 
+	 *
 	 * @param networkNode The network XML node.
 	 * @param networks    The target collection.
 	 */
@@ -204,9 +203,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		addNetworkDetails(networkNode, networks, "public", "ipAddress", "dnsName");
 
 		// IPv6 (optional)
-		final XPath xPath = xml.xpathFactory.newXPath();
+		final var xPath = xml.xpathFactory.newXPath();
 		try {
-			final NodeList ipv6 = (NodeList) xPath.evaluate("networkInterfaceSet/item/ipv6AddressesSet", networkNode,
+			final var ipv6 = (NodeList) xPath.evaluate("networkInterfaceSet/item/ipv6AddressesSet", networkNode,
 					XPathConstants.NODESET);
 			IntStream.range(0, ipv6.getLength()).mapToObj(ipv6::item)
 					.forEach(i -> addNetworkDetails((Element) i, networks, "public", "item", "dnsName"));
@@ -246,7 +245,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	@Override
 	public SubscriptionStatusWithData checkSubscriptionStatus(final int subscription, final String node,
 			final Map<String, String> parameters) throws Exception { // NOSONAR
-		final SubscriptionStatusWithData status = new SubscriptionStatusWithData();
+		final var status = new SubscriptionStatusWithData();
 		status.put("vm", getVmDetails(parameters));
 		status.put("schedules", vmScheduleRepository.countBySubscription(subscription));
 		return status;
@@ -265,12 +264,12 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	@Override
 	public void execute(final VmExecution execution) throws Exception {
 		final int subscription = execution.getSubscription().getId();
-		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
+		final var parameters = pvResource.getSubscriptionParameters(subscription);
 		// Propagate the instance identifiers
 		execution.setVm(getVmDetails(parameters).getName() + "," + parameters.get(PARAMETER_INSTANCE_ID));
 
 		// Execute the operation
-		final String response = Optional.ofNullable(OPERATION_TO_ACTION.get(execution.getOperation())).map(
+		final var response = Optional.ofNullable(OPERATION_TO_ACTION.get(execution.getOperation())).map(
 				a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
 				.orElse(null);
 		if (!logTransitionState(response)) {
@@ -327,11 +326,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 */
 	private List<AwsVm> getDescribeInstances(final Map<String, String> parameters, final String filter,
 			final Function<Element, AwsVm> parser) throws Exception {
-		String query = "Action=DescribeInstances";
+		var query = "Action=DescribeInstances";
 		if (StringUtils.isNotEmpty(filter)) {
 			query += filter;
 		}
-		final String response = StringUtils.defaultIfEmpty(processEC2(parameters, query),
+		final var response = StringUtils.defaultIfEmpty(processEC2(parameters, query),
 				"<DescribeInstancesResponse><reservationSet><item><instancesSet></instancesSet></item></reservationSet></DescribeInstancesResponse>");
 		return toVms(response, parser);
 	}
@@ -341,8 +340,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	private int getEc2State(final Element record, final String tag) {
-		final Element stateElement = (Element) record.getElementsByTagName(tag).item(0);
-		return Integer.valueOf(xml.getTagText(stateElement, "code"));
+		final var stateElement = (Element) record.getElementsByTagName(tag).item(0);
+		return Integer.parseInt(xml.getTagText(stateElement, "code"));
 	}
 
 	@Override
@@ -385,7 +384,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 	@Override
 	public AwsVm getVmDetails(final Map<String, String> parameters) throws Exception {
-		final String instanceId = parameters.get(PARAMETER_INSTANCE_ID);
+		final var instanceId = parameters.get(PARAMETER_INSTANCE_ID);
 
 		// Get the VM if exists
 		return getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId,
@@ -406,7 +405,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 */
 	private boolean logTransitionState(final String response)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		final NodeList items = xml.getXpath(ObjectUtils.defaultIfNull(response, "<a></a>"),
+		final var items = xml.getXpath(ObjectUtils.defaultIfNull(response, "<a></a>"),
 				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> (Element) n)
 				.peek(e -> log.info("Instance {} goes from {} to {} state", xml.getTagText(e, "instanceId"),
@@ -425,11 +424,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return initialized request
 	 */
 	protected CurlRequest newRequest(final AWS4SignatureQueryBuilder builder, final Map<String, String> parameters) {
-		final AWS4SignatureQuery query = builder.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
+		final var query = builder.accessKey(parameters.get(VmAwsPluginResource.PARAMETER_ACCESS_KEY_ID))
 				.secretKey(parameters.get(VmAwsPluginResource.PARAMETER_SECRET_ACCESS_KEY))
 				.region(getRegion(parameters)).path("/").build();
-		final String authorization = signer.computeSignature(query);
-		final CurlRequest request = new CurlRequest(query.getMethod(), toUrl(query), query.getBody());
+		final var authorization = signer.computeSignature(query);
+		final var request = new CurlRequest(query.getMethod(), toUrl(query), query.getBody());
 		request.getHeaders().putAll(query.getHeaders());
 		request.getHeaders().put("Authorization", authorization);
 		request.setSaveResponse(true);
@@ -445,7 +444,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
-		final Map<String, String> parameters = pvResource.getSubscriptionParameters(subscription);
+		final var parameters = pvResource.getSubscriptionParameters(subscription);
 		return processEC2(parameters, queryProvider.apply(parameters));
 	}
 
@@ -458,10 +457,10 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final Map<String, String> parameters, final String query) {
-		final AWS4SignatureQueryBuilder signatureQuery = AWS4SignatureQuery.builder().service("ec2")
+		final var signatureQuery = AWS4SignatureQuery.builder().service("ec2")
 				.body(query + "&Version=" + VmAwsPluginResource.API_VERSION);
-		final CurlRequest request = newRequest(signatureQuery, parameters);
-		try (CurlProcessor curl = new CurlProcessor()) {
+		final var request = newRequest(signatureQuery, parameters);
+		try (var curl = new CurlProcessor()) {
 			curl.process(request);
 		}
 		return request.getResponse();
@@ -486,17 +485,17 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * Build a described {@link AwsVm} bean from a XML VMRecord entry.
 	 */
 	private AwsVm toVm(final Element record) {
-		final AwsVm result = new AwsVm();
+		final var result = new AwsVm();
 		result.setId(xml.getTagText(record, "instanceId"));
 		result.setName(Objects.toString(getName(record), result.getId()));
 		result.setDescription(getResourceTag(record, "description"));
-		final int state = getEc2State(record);
+		final var state = getEc2State(record);
 		result.setStatus(CODE_TO_STATUS.get(state));
 		result.setBusy(Arrays.binarySearch(BUSY_CODES, state) >= 0);
 		result.setVpc(xml.getTagText(record, "vpcId"));
 		result.setAz(xml.getTagText((Element) record.getElementsByTagName("placement").item(0), "availabilityZone"));
 
-		final InstanceType type = instanceTypes.get(xml.getTagText(record, "instanceType"));
+		final var type = instanceTypes.get(xml.getTagText(record, "instanceType"));
 		// Instance type details
 		result.setRam(Optional.ofNullable(type).map(InstanceType::getRam).map(m -> (int) (m * 1024d)).orElse(0));
 		result.setCpu(Optional.ofNullable(type).map(InstanceType::getCpu).orElse(0));
@@ -508,7 +507,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * Build a described {@link AwsVm} bean from a XML VMRecord entry.
 	 */
 	private AwsVm toVmDetails(final Element record) {
-		final AwsVm result = toVm(record);
+		final var result = toVm(record);
 
 		// Network details
 		result.setNetworks(new ArrayList<VmNetwork>());
@@ -522,8 +521,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * Build described beans from a XML result.
 	 */
 	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser) throws Exception {
-		final NodeList items = xml.getXpath(vmAsXml,
-				"/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
+		final var items = xml.getXpath(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> parser.apply((Element) n))
 				.collect(Collectors.toList());
 	}

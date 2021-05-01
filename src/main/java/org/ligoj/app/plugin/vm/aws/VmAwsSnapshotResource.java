@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -40,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * AWS VM snapshot resource.
- * 
+ *
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshot.html">API_CreateSnapshot</a>
  * @see <a href=
  *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html">API_DescribeSnapshots</a>
@@ -92,14 +91,14 @@ public class VmAwsSnapshotResource {
 	 * Complete the task status from remote AWS information. Is considered as not completely finished when AMI tasks are
 	 * finished without error at client side, and that AMI can be found by its identifier and yet not listed with tag
 	 * filters.
-	 * 
+	 *
 	 * @param task The task to complete.
 	 */
 	protected void completeStatus(final VmSnapshotStatus task) {
 		if (task.getOperation() == SnapshotOperation.CREATE && task.getSnapshotInternalId() != null) {
 			// Create task is finished locally, AMI id is attached, check it remotely
-			final String id = task.getSnapshotInternalId();
-			final Snapshot ami = findById(task.getLocked().getId(), id);
+			final var id = task.getSnapshotInternalId();
+			final var ami = findById(task.getLocked().getId(), id);
 			if (ami == null) {
 				// AMI has been deleted of never been correctly created
 				task.setFailed(true);
@@ -119,7 +118,7 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Create a new AMI from the given subscription. First, the name is fixed and based from the subscription and the
 	 * current date, then AMI is created, then tagged.
-	 * 
+	 *
 	 * @param task A transient instance of the related task, and also linked to a subscription. Note it is a read-only
 	 *             view.
 	 * @throws IOException                  When VM definition XML cannot be retrieved.
@@ -128,16 +127,16 @@ public class VmAwsSnapshotResource {
 	 */
 	protected void create(final VmSnapshotStatus task) throws SAXException, IOException, ParserConfigurationException {
 		final int subscription = task.getLocked().getId();
-		final Map<String, String> parameters = subscriptionResource.getParametersNoCheck(subscription);
+		final var parameters = subscriptionResource.getParametersNoCheck(subscription);
 		// Create the AMI
 		snapshotResource.nextStep(subscription, s -> {
 			s.setPhase("creating-ami");
 			s.setWorkload(3);
 		});
-		final String instanceId = parameters.get(VmAwsPluginResource.PARAMETER_INSTANCE_ID);
-		final String amiCreateDate = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(task.getStart());
-		final String amiName = subscription + "/" + amiCreateDate;
-		final String amiResponse = resource.processEC2(parameters,
+		final var instanceId = parameters.get(VmAwsPluginResource.PARAMETER_INSTANCE_ID);
+		final var amiCreateDate = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(task.getStart());
+		final var amiName = subscription + "/" + amiCreateDate;
+		final var amiResponse = resource.processEC2(parameters,
 				"Action=CreateImage&NoReboot=" + (!task.isStop()) + "&InstanceId=" + instanceId
 						+ "&Name=ligoj-snapshot/" + amiName + "&Description=Snapshot+created+from+Ligoj");
 		if (amiResponse == null) {
@@ -150,7 +149,7 @@ public class VmAwsSnapshotResource {
 		}
 
 		// Get the AMI details from its identifier after a little while
-		final String amiId = xml.getTagText(xml.parse(amiResponse), "imageId");
+		final var amiId = xml.getTagText(xml.parse(amiResponse), "imageId");
 
 		// Tag for subscription and audit association
 		snapshotResource.nextStep(subscription, s -> {
@@ -177,7 +176,7 @@ public class VmAwsSnapshotResource {
 
 	/**
 	 * Delete a snapshot.
-	 * 
+	 *
 	 * @param task A transient instance of the related task, and also linked to a subscription. Note it is a read-only
 	 *             view.
 	 * @throws ParserConfigurationException XML parsing failed.
@@ -328,7 +327,7 @@ public class VmAwsSnapshotResource {
 
 	/**
 	 * Return the AMI corresponding to the given task and that is not in the given snapshot list.
-	 * 
+	 *
 	 * @param snapshots The snapshots list to check.
 	 * @param task      The task to check.
 	 * @return The not yet globally visible AMI or <code>null</code>.
@@ -365,7 +364,7 @@ public class VmAwsSnapshotResource {
 
 	/**
 	 * Request IAM provider to get user details.
-	 * 
+	 *
 	 * @param login The requested user login.
 	 * @return Either the resolved instance, either <code>null</code> when not found.
 	 */
@@ -373,7 +372,7 @@ public class VmAwsSnapshotResource {
 		return Optional.ofNullable(iamProvider[0].getConfiguration().getUserRepository().findById(login))
 				.orElseGet(() -> {
 					// Untracked user
-					final UserOrg user = new UserOrg();
+					final var user = new UserOrg();
 					user.setId(login);
 					return user;
 				});
@@ -381,7 +380,7 @@ public class VmAwsSnapshotResource {
 
 	/**
 	 * Indicate the AWS response is <code>true</code>.
-	 * 
+	 *
 	 * @param response The AWS response.
 	 * @return <code>true</code> when the AWS response succeed.
 	 * @throws ParserConfigurationException XML parsing failed.
@@ -499,9 +498,9 @@ public class VmAwsSnapshotResource {
 		// Only for EBS
 		final var ebs = element.getElementsByTagName("ebs");
 		IntStream.range(0, ebs.getLength()).mapToObj(ebs::item).findFirst().ifPresent(v -> {
-			final Element se = (Element) v;
+			final var se = (Element) v;
 			snapshot.setId(xml.getTagText(se, "snapshotId"));
-			snapshot.setSize(Integer.valueOf(StringUtils.defaultString(xml.getTagText(se, "volumeSize"), "0")));
+			snapshot.setSize(Integer.parseInt(StringUtils.defaultString(xml.getTagText(se, "volumeSize"), "0")));
 		});
 
 		return snapshot;
