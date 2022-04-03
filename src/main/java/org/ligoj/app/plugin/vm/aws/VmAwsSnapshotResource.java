@@ -8,7 +8,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -291,7 +290,7 @@ public class VmAwsSnapshotResource {
 	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
 			final VmSnapshotStatus task) {
 		final var snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
-				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
+				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).toList();
 
 		// Add the current task to the possible running snapshots
 		if (task != null) {
@@ -443,7 +442,7 @@ public class VmAwsSnapshotResource {
 			final var volumes = (NodeList) xPath.compile("blockDeviceMapping/item").evaluate(element,
 					XPathConstants.NODESET);
 			snapshot.setVolumes(IntStream.range(0, volumes.getLength()).mapToObj(volumes::item)
-					.map(v -> toVolume((Element) v)).filter(v -> v.getId() != null).collect(Collectors.toList()));
+					.map(v -> toVolume((Element) v)).filter(v -> v.getId() != null).toList());
 
 			// Creation date
 			snapshot.setDate(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX").parse(date));
@@ -485,7 +484,7 @@ public class VmAwsSnapshotResource {
 						"<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
 				"/DescribeImagesResponse/imagesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toAmi((Element) n))
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	/**

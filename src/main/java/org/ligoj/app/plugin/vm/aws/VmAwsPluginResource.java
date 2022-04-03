@@ -306,7 +306,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		return this.getDescribeInstances(parameters, "", this::toVm).stream()
 				.filter(vm -> StringUtils.containsIgnoreCase(vm.getName(), criteria)
 						|| StringUtils.containsIgnoreCase(vm.getId(), criteria))
-				.sorted().collect(Collectors.toList());
+				.sorted().toList();
 	}
 
 	@Override
@@ -523,7 +523,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser) throws Exception {
 		final var items = xml.getXpath(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> parser.apply((Element) n))
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	/**
