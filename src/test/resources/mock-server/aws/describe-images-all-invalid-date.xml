@@ -4,7 +4,7 @@
     <imagesSet>
         <item>
             <imageId>ami-00000002</imageId>
-            <imageLocation>123456789012/sample-ligo2</imageLocation>
+            <imageLocation>123456789012/sample-ligoj2</imageLocation>
             <imageState>available</imageState>
             <imageOwnerId>123456789012</imageOwnerId>
             <creationDate>2018-01-23T16:46:45.000Z</creationDate>
@@ -12,7 +12,7 @@
             <architecture>x86_64</architecture>
             <imageType>machine</imageType>
             <sriovNetSupport>simple</sriovNetSupport>
-            <name>sample-ligo2</name>
+            <name>sample-ligoj2</name>
             <description>Information</description>
             <rootDeviceType>ebs</rootDeviceType>
             <rootDeviceName>/dev/sda1</rootDeviceName>
@@ -20,7 +20,7 @@
                 <item>
                     <deviceName>/dev/sda1</deviceName>
                     <ebs>
-                        <snapshotId>snap-0a9e26b713aeec40f</snapshotId>
+                        <snapshotId>snap-1234</snapshotId>
                         <volumeSize>16</volumeSize>
                         <deleteOnTermination>true</deleteOnTermination>
                         <volumeType>gp2</volumeType>
@@ -51,7 +51,7 @@
         </item>
         <item>
             <imageId>ami-00000001</imageId>
-            <imageLocation>123456789012/sample-ligo2</imageLocation>
+            <imageLocation>123456789012/sample-ligoj2</imageLocation>
             <imageState>available</imageState>
             <imageOwnerId>123456789012</imageOwnerId>
             <creationDate>INVALID-DATE-IS-0</creationDate>
@@ -59,7 +59,7 @@
             <architecture>x86_64</architecture>
             <imageType>machine</imageType>
             <sriovNetSupport>simple</sriovNetSupport>
-            <name>sample-ligo2</name>
+            <name>sample-ligoj2</name>
             <description>Information</description>
             <rootDeviceType>ebs</rootDeviceType>
             <rootDeviceName>/dev/sda1</rootDeviceName>
@@ -67,7 +67,7 @@
                 <item>
                     <deviceName>/dev/sda1</deviceName>
                     <ebs>
-                        <snapshotId>snap-0a9e26b713aeec40e</snapshotId>
+                        <snapshotId>snap-0000000000000000</snapshotId>
                         <volumeSize>8</volumeSize>
                         <deleteOnTermination>true</deleteOnTermination>
                         <volumeType>gp2</volumeType>

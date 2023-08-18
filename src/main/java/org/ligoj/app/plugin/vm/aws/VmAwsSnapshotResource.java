@@ -5,6 +5,7 @@ package org.ligoj.app.plugin.vm.aws;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -223,8 +224,8 @@ public class VmAwsSnapshotResource {
 		});
 		final var query = new StringBuilder();
 		IntStream.range(0, ami.getVolumes().size())
-				.forEach(i -> query.append("&SnapshotId." + (i + 1) + "=" + ami.getVolumes().get(i).getId()));
-		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeleteSnapshot" + query.toString()))) {
+				.forEach(i -> query.append("&SnapshotId.").append(i + 1).append("=").append(ami.getVolumes().get(i).getId()));
+		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeleteSnapshot" + query))) {
 			// Deleting snapshots failed
 			snapshotResource.endTask(subscription, true, s -> {
 				s.setStatusText(VmAwsPluginResource.KEY + ":ami-deleting-snapshots-failed");
@@ -252,7 +253,7 @@ public class VmAwsSnapshotResource {
 
 		// Get all AMI associated to a snapshot and the subscription
 		try {
-			return toAmis(resource.processEC2(subscription,
+			return toAmiList(resource.processEC2(subscription,
 					p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
 		} catch (final Exception e) {
 			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
@@ -289,8 +290,8 @@ public class VmAwsSnapshotResource {
 	 */
 	private List<Snapshot> findAllByNameOrId(final int subscription, final String criteria,
 			final VmSnapshotStatus task) {
-		final var snapshots = findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
-				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).toList();
+		final var snapshots = new ArrayList<>(findAllBySubscription(subscription).stream().filter(s -> matches(s, criteria))
+				.sorted((a, b) -> b.getDate().compareTo(a.getDate())).toList());
 
 		// Add the current task to the possible running snapshots
 		if (task != null) {
@@ -474,13 +475,13 @@ public class VmAwsSnapshotResource {
 	/**
 	 * Parse <code>DescribeImagesResponse</code> response to {@link Snapshot} list.
 	 *
-	 * @param amisAsXml AMI descriptions as XML.
+	 * @param amiListAsXml AMI descriptions as XML.
 	 * @return The parsed AMI as {@link Snapshot}.
 	 */
-	private List<Snapshot> toAmis(final String amisAsXml)
+	private List<Snapshot> toAmiList(final String amiListAsXml)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
 		final var items = xml.getXpath(
-				StringUtils.defaultIfEmpty(amisAsXml,
+				StringUtils.defaultIfEmpty(amiListAsXml,
 						"<DescribeImagesResponse><imagesSet></imagesSet></DescribeImagesResponse>"),
 				"/DescribeImagesResponse/imagesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> toAmi((Element) n))

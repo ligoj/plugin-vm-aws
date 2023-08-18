@@ -28,7 +28,7 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 	/**
 	 * clock used to date query
 	 */
-	private Clock clock = Clock.systemUTC();
+	private final Clock clock = Clock.systemUTC();
 
 	/**
 	 * Computes an AWS4 signature for a request, ready for inclusion as an 'Authorization' header.

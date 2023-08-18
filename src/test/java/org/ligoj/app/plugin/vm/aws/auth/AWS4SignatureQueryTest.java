@@ -17,10 +17,10 @@ class AWS4SignatureQueryTest {
 	@Test
 	void builder() {
 		var builder = AWS4SignatureQuery.builder();
-		builder.toString();
+		Assertions.assertNotNull(builder.toString());
 		builder = builderCommon(builder);
 		builder = builder.method("GET");
-		builder.toString();
+		Assertions.assertNotNull(builder.toString());
 		Assertions.assertEquals("s3-eu-west-1.amazonaws.com", builder.service("s3").build().getHost());
 		Assertions.assertEquals("ec2.eu-west-1.amazonaws.com", builder.service("ec2").build().getHost());
 	}

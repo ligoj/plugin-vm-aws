@@ -18,14 +18,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.UriInfo;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
@@ -98,7 +98,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	public static final String PARAMETER_SECRET_ACCESS_KEY = KEY + ":secret-access-key";
 
 	/**
-	 * AWS Account Id.
+	 * AWS Account ID.
 	 */
 	public static final String PARAMETER_ACCOUNT = KEY + ":account";
 
@@ -319,7 +319,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *
 	 * @param parameters Subscription parameters.
 	 * @param filter     Optional instance identifier to find. For sample :
-	 *                   "&Filter.1.Name=instance-id&Filter.1.Value.1=my_insance_id"
+	 *                   "&Filter.1.Name=instance-id&Filter.1.Value.1=my_instance_id"
 	 * @param parser     The mapper from {@link Element} to {@link AwsVm}.
 	 * @return The matching instances.
 	 * @throws Exception When AWS content cannot be read.
@@ -360,7 +360,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Return the region from the subscription's parameters or the the default one.
+	 * Return the region from the subscription's parameters or the default one.
 	 *
 	 * @param parameters The subscription parameters.
 	 * @return The right region to use. Never <code>null</code>.
@@ -482,7 +482,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Build a described {@link AwsVm} bean from a XML VMRecord entry.
+	 * Build a described {@link AwsVm} bean from an XML VMRecord entry.
 	 */
 	private AwsVm toVm(final Element record) {
 		final var result = new AwsVm();
@@ -504,13 +504,13 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Build a described {@link AwsVm} bean from a XML VMRecord entry.
+	 * Build a described {@link AwsVm} bean from an XML VMRecord entry.
 	 */
 	private AwsVm toVmDetails(final Element record) {
 		final var result = toVm(record);
 
 		// Network details
-		result.setNetworks(new ArrayList<VmNetwork>());
+		result.setNetworks(new ArrayList<>());
 
 		// Get network data for each network references
 		addNetworkDetails(record, result.getNetworks());

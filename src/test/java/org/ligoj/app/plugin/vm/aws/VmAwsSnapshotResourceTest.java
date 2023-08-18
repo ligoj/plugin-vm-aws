@@ -3,17 +3,7 @@
  */
 package org.ligoj.app.plugin.vm.aws;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
-import javax.transaction.Transactional;
-import javax.xml.parsers.ParserConfigurationException;
-
+import jakarta.transaction.Transactional;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,11 +14,7 @@ import org.ligoj.app.dao.SubscriptionRepository;
 import org.ligoj.app.iam.IUserRepository;
 import org.ligoj.app.iam.IamConfiguration;
 import org.ligoj.app.iam.IamProvider;
-import org.ligoj.app.model.Node;
-import org.ligoj.app.model.Parameter;
-import org.ligoj.app.model.ParameterValue;
-import org.ligoj.app.model.Project;
-import org.ligoj.app.model.Subscription;
+import org.ligoj.app.model.*;
 import org.ligoj.app.plugin.vm.model.SnapshotOperation;
 import org.ligoj.app.plugin.vm.model.VmSchedule;
 import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
@@ -37,7 +23,6 @@ import org.ligoj.app.plugin.vm.snapshot.VmSnapshotResource;
 import org.ligoj.app.resource.subscription.SubscriptionResource;
 import org.ligoj.bootstrap.core.DateUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
-import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +31,12 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.xml.sax.SAXException;
+
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * Test class of {@link VmAwsSnapshotResource}
@@ -71,8 +62,8 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		// Only with Spring context
 		persistSystemEntities();
 		persistEntities("csv", new Class[] { Node.class, Parameter.class, Project.class, Subscription.class,
-				ParameterValue.class, VmSchedule.class }, StandardCharsets.UTF_8.name());
-		this.subscription = getSubscription("gStack");
+				ParameterValue.class, VmSchedule.class }, StandardCharsets.UTF_8);
+		this.subscription = getSubscription("Jupiter");
 
 		// Invalidate vCloud cache
 		cacheManager.getCache("curl-tokens").clear();
@@ -88,9 +79,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(2, snapshosts.size());
-		final var snapshot = checkAmiPart(snapshosts.get(0));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(2, snapshots.size());
+		final var snapshot = checkAmiPart(snapshots.get(0));
 		Assertions.assertNotNull(snapshot.getDate());
 		Assertions.assertNotNull(snapshot.getAuthor().getFirstName());
 	}
@@ -110,9 +101,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(2, snapshosts.size());
-		checkAmiPart(snapshosts.get(0));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(2, snapshots.size());
+		checkAmiPart(snapshots.get(0));
 	}
 
 	/**
@@ -132,16 +123,16 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(3, snapshosts.size());
-		checkAmiPart(snapshosts.get(1));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(3, snapshots.size());
+		checkAmiPart(snapshots.get(1));
 
 		// Failed task, unlisted AMI, failed and not created AMI
-		Assertions.assertEquals("ligoj-admin", snapshosts.get(0).getAuthor().getId());
-		Assertions.assertEquals("ami-00000004", snapshosts.get(0).getId());
-		Assertions.assertFalse(snapshosts.get(0).isPending());
-		Assertions.assertFalse(snapshosts.get(0).isAvailable());
-		Assertions.assertEquals("some-error", snapshosts.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin", snapshots.get(0).getAuthor().getId());
+		Assertions.assertEquals("ami-00000004", snapshots.get(0).getId());
+		Assertions.assertFalse(snapshots.get(0).isPending());
+		Assertions.assertFalse(snapshots.get(0).isAvailable());
+		Assertions.assertEquals("some-error", snapshots.get(0).getStatusText());
 	}
 
 	/**
@@ -158,16 +149,16 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(3, snapshosts.size());
-		checkAmiPart(snapshosts.get(1));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(3, snapshots.size());
+		checkAmiPart(snapshots.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		Assertions.assertEquals("ligoj-admin2", snapshosts.get(0).getAuthor().getId());
-		Assertions.assertEquals("ami-00000004", snapshosts.get(0).getId());
-		Assertions.assertTrue(snapshosts.get(0).isPending());
-		Assertions.assertFalse(snapshosts.get(0).isAvailable());
-		Assertions.assertEquals("not-found", snapshosts.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin2", snapshots.get(0).getAuthor().getId());
+		Assertions.assertEquals("ami-00000004", snapshots.get(0).getId());
+		Assertions.assertTrue(snapshots.get(0).isPending());
+		Assertions.assertFalse(snapshots.get(0).isAvailable());
+		Assertions.assertEquals("not-found", snapshots.get(0).getStatusText());
 	}
 
 	/**
@@ -184,16 +175,16 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(3, snapshosts.size());
-		checkAmiPart(snapshosts.get(1));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(3, snapshots.size());
+		checkAmiPart(snapshots.get(1));
 
 		// Finished task, unlisted AMI and not created AMI (user from AMI)
-		Assertions.assertEquals("ligoj-admin", snapshosts.get(0).getAuthor().getId());
-		Assertions.assertEquals("ami-00000004", snapshosts.get(0).getId());
-		Assertions.assertFalse(snapshosts.get(0).isPending());
-		Assertions.assertTrue(snapshosts.get(0).isAvailable());
-		Assertions.assertEquals("available", snapshosts.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin", snapshots.get(0).getAuthor().getId());
+		Assertions.assertEquals("ami-00000004", snapshots.get(0).getId());
+		Assertions.assertFalse(snapshots.get(0).isPending());
+		Assertions.assertTrue(snapshots.get(0).isAvailable());
+		Assertions.assertEquals("available", snapshots.get(0).getStatusText());
 	}
 
 	/**
@@ -208,16 +199,16 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(3, snapshosts.size());
-		checkAmiPart(snapshosts.get(1));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(3, snapshots.size());
+		checkAmiPart(snapshots.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		Assertions.assertEquals("ligoj-admin2", snapshosts.get(0).getAuthor().getId());
-		Assertions.assertNull(snapshosts.get(0).getId());
-		Assertions.assertTrue(snapshosts.get(0).isPending());
-		Assertions.assertFalse(snapshosts.get(0).isAvailable());
-		Assertions.assertEquals("not-created", snapshosts.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin2", snapshots.get(0).getAuthor().getId());
+		Assertions.assertNull(snapshots.get(0).getId());
+		Assertions.assertTrue(snapshots.get(0).isPending());
+		Assertions.assertFalse(snapshots.get(0).isAvailable());
+		Assertions.assertEquals("not-created", snapshots.get(0).getStatusText());
 	}
 
 	/**
@@ -236,12 +227,12 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(3, snapshosts.size());
-		checkAmiPart(snapshosts.get(1));
+		final var snapshots = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(3, snapshots.size());
+		checkAmiPart(snapshots.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		final var snapshot = snapshosts.get(0);
+		final var snapshot = snapshots.get(0);
 		Assertions.assertEquals("ligoj-admin2", snapshot.getAuthor().getId());
 		Assertions.assertEquals("ami-00000004", snapshot.getId());
 		Assertions.assertTrue(snapshot.isPending());
@@ -373,9 +364,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "snap-0a9e26b713aeec40e");
-		Assertions.assertEquals(1, snapshosts.size());
-		checkAmiPart(snapshosts.get(0));
+		final var snapshots = resource.findAllByNameOrId(subscription, "snap-0000000000000000");
+		Assertions.assertEquals(1, snapshots.size());
+		checkAmiPart(snapshots.get(0));
 	}
 
 	@Test
@@ -383,9 +374,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "ami-00000001");
-		Assertions.assertEquals(1, snapshosts.size());
-		checkAmiPart(snapshosts.get(0));
+		final var snapshots = resource.findAllByNameOrId(subscription, "ami-00000001");
+		Assertions.assertEquals(1, snapshots.size());
+		checkAmiPart(snapshots.get(0));
 	}
 
 	@Test
@@ -393,9 +384,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "sample-ligo2");
-		Assertions.assertEquals(1, snapshosts.size());
-		checkAmiPart(snapshosts.get(0));
+		final var snapshots = resource.findAllByNameOrId(subscription, "sample-ligoj2");
+		Assertions.assertEquals(1, snapshots.size());
+		checkAmiPart(snapshots.get(0));
 	}
 
 	@Test
@@ -403,9 +394,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&Filter.1.Name=tag:ligoj:subscription&Filter.1.Value="
 				+ subscription, "mock-server/aws/describe-images-all-invalid-date.xml");
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "n");
-		Assertions.assertEquals(2, snapshosts.size());
-		Assertions.assertEquals(0, checkAmiPart(snapshosts.get(1)).getDate().getTime());
+		final var snapshots = resource.findAllByNameOrId(subscription, "n");
+		Assertions.assertEquals(2, snapshots.size());
+		Assertions.assertEquals(0, checkAmiPart(snapshots.get(1)).getDate().getTime());
 	}
 
 	@Test
@@ -420,9 +411,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		final var userRepository = Mockito.mock(IUserRepository.class);
 		Mockito.doReturn(userRepository).when(iamConfiguration).getUserRepository();
 
-		final var snapshosts = resource.findAllByNameOrId(subscription, "n");
-		Assertions.assertEquals(2, snapshosts.size());
-		Assertions.assertNull(checkAmiPart(snapshosts.get(0)).getAuthor().getCompany());
+		final var snapshots = resource.findAllByNameOrId(subscription, "n");
+		Assertions.assertEquals(2, snapshots.size());
+		Assertions.assertNull(checkAmiPart(snapshots.get(0)).getAuthor().getCompany());
 	}
 
 	@Test
@@ -431,14 +422,14 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 				+ subscription, "mock-server/aws/describe-images-all-invalid-volume.xml");
 
 		// Only one volume snapshot match inside the AMI
-		final var snapshosts = resource.findAllByNameOrId(subscription, "snap-");
-		Assertions.assertEquals(1, snapshosts.size());
-		checkAmiPart(snapshosts.get(0));
+		final var snapshots = resource.findAllByNameOrId(subscription, "snap-");
+		Assertions.assertEquals(1, snapshots.size());
+		checkAmiPart(snapshots.get(0));
 
-		// Without filter, the other AMI matches, and does not contains any volume snapshot (invalid)
-		final var snapshostsNoFilter = resource.findAllByNameOrId(subscription, "");
-		Assertions.assertEquals(2, snapshostsNoFilter.size());
-		Assertions.assertEquals(0, snapshostsNoFilter.get(1).getVolumes().size());
+		// Without filter, the other AMI matches, and does not contain any volume snapshot (invalid)
+		final var snapshotsNoFilter = resource.findAllByNameOrId(subscription, "");
+		Assertions.assertEquals(2, snapshotsNoFilter.size());
+		Assertions.assertEquals(0, snapshotsNoFilter.get(1).getVolumes().size());
 	}
 
 	@Test
@@ -565,7 +556,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
-		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0a9e26b713aeec40e&SnapshotId.2=snap-0a9e26b713aeec40f",
+		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0000000000000000&SnapshotId.2=snap-1234",
 				"mock-server/aws/delete-snapshot-return-false.xml");
 		checkDeleteSnapshotsFail(status);
 	}
@@ -589,7 +580,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004-multiple-volumes.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image.xml");
-		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0a9e26b713aeec40e&SnapshotId.2=snap-0a9e26b713aeec40f",
+		mockAws("Action=DeleteSnapshot&SnapshotId.1=snap-0000000000000000&SnapshotId.2=snap-1234",
 				"mock-server/aws/delete-snapshot.xml");
 		resource.delete(status);
 		Assertions.assertTrue(status.isFinished());
@@ -647,34 +638,22 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 		Mockito.when(resource.snapshotResource.nextStep(ArgumentMatchers.eq(subscription),
-				ArgumentMatchers.argThat(new ArgumentMatcher<Consumer<VmSnapshotStatus>>() {
-
-					@Override
-					public boolean matches(final Consumer<VmSnapshotStatus> f) {
-						f.accept(status);
-						return true;
-					}
+				ArgumentMatchers.argThat(f -> {
+					f.accept(status);
+					return true;
 				}))).thenReturn(null);
 		Mockito.when(resource.snapshotResource.endTask(ArgumentMatchers.eq(subscription), ArgumentMatchers.eq(true),
-				ArgumentMatchers.argThat(new ArgumentMatcher<Consumer<VmSnapshotStatus>>() {
-
-					@Override
-					public boolean matches(final Consumer<VmSnapshotStatus> f) {
-						f.accept(status);
-						status.setFailed(true);
-						status.setEnd(new Date());
-						return true;
-					}
+				ArgumentMatchers.argThat(f -> {
+					f.accept(status);
+					status.setFailed(true);
+					status.setEnd(new Date());
+					return true;
 				}))).thenReturn(null);
 		Mockito.when(resource.snapshotResource.endTask(ArgumentMatchers.eq(subscription), ArgumentMatchers.eq(false),
-				ArgumentMatchers.argThat(new ArgumentMatcher<Consumer<VmSnapshotStatus>>() {
-
-					@Override
-					public boolean matches(final Consumer<VmSnapshotStatus> f) {
-						f.accept(status);
-						status.setEnd(new Date());
-						return true;
-					}
+				ArgumentMatchers.argThat(f -> {
+					f.accept(status);
+					status.setEnd(new Date());
+					return true;
 				}))).thenReturn(null);
 		return status;
 	}
@@ -684,7 +663,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		Assertions.assertTrue(snapshot.isAvailable());
 		Assertions.assertFalse(snapshot.isPending());
 		Assertions.assertEquals("ami-00000001", snapshot.getId());
-		Assertions.assertEquals("sample-ligo2", snapshot.getName());
+		Assertions.assertEquals("sample-ligoj2", snapshot.getName());
 		Assertions.assertEquals("available", snapshot.getStatusText());
 		Assertions.assertEquals("ligoj-admin", snapshot.getAuthor().getId());
 		Assertions.assertNull(snapshot.getStopRequested());
@@ -694,7 +673,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	private Snapshot checkAmiPart(final Snapshot snapshot) {
 		Assertions.assertEquals(1, snapshot.getVolumes().size());
 		Assertions.assertEquals(8, snapshot.getVolumes().get(0).getSize());
-		Assertions.assertEquals("snap-0a9e26b713aeec40e", snapshot.getVolumes().get(0).getId());
+		Assertions.assertEquals("snap-0000000000000000", snapshot.getVolumes().get(0).getId());
 		Assertions.assertEquals("/dev/sda1", snapshot.getVolumes().get(0).getName());
 		return checkAmiPartNoVolume(snapshot);
 	}
@@ -702,15 +681,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	private void mockAws(final String url, final String response) throws IOException {
 		final var parameters = subscriptionResource.getParametersNoCheck(subscription);
 		Mockito.when(resource.resource.processEC2(ArgumentMatchers.eq(subscription),
-				ArgumentMatchers.argThat(new ArgumentMatcher<Function<Map<String, String>, String>>() {
-
-					@Override
-					public boolean matches(final Function<Map<String, String>, String> f) {
-						return f.apply(parameters).equals(url);
-					}
-				}))).thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), "UTF-8"));
+				ArgumentMatchers.argThat(f -> f.apply(parameters).equals(url)))).thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), StandardCharsets.UTF_8));
 		Mockito.when(resource.resource.processEC2(ArgumentMatchers.eq(parameters), ArgumentMatchers.eq(url)))
-				.thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), "UTF-8"));
+				.thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), StandardCharsets.UTF_8));
 	}
 
 	/**
