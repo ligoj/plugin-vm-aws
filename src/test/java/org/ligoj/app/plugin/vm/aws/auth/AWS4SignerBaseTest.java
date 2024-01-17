@@ -1,12 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-/**
- *
- */
 package org.ligoj.app.plugin.vm.aws.auth;
-
-import java.util.HashMap;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -18,7 +13,9 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
+import java.util.Map;
+
 
 /**
  * Test class of {@link AWS4SignerBase}
@@ -32,38 +29,38 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizeHeaderNames(java.util.Map)}.
+	 * {@link  org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizeHeaderNames(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizeHeaderNames() {
-		final var headerNames = signer.getCanonicalizeHeaderNames(ImmutableMap.of("header2", "h2", "header1", "h1"));
+		final var headerNames = signer.getCanonicalizeHeaderNames(Map.of("header2", "h2", "header1", "h1"));
 		Assertions.assertEquals("header1;header2", headerNames);
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedHeaderStringWithoutHeaders() {
-		final var headerNames = signer.getCanonicalizedHeaderString(new HashMap<String, String>());
+		final var headerNames = signer.getCanonicalizedHeaderString(new HashMap<>());
 		Assertions.assertEquals("", headerNames);
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedHeaderString() {
 		final var headerNames = signer
-				.getCanonicalizedHeaderString(ImmutableMap.of("header2", "h  2", "header1", "h1"));
+				.getCanonicalizedHeaderString(Map.of("header2", "h  2", "header1", "h1"));
 		Assertions.assertEquals("header1:h1\nheader2:h 2\n", headerNames);
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalRequest(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalRequest(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalRequest() {
@@ -74,7 +71,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathNull() {
@@ -83,7 +80,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathEmpty() {
@@ -92,7 +89,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathWithoutFirstSlash() {
@@ -101,7 +98,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathWithFirstSlash() {
@@ -110,7 +107,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathEncodingException() throws EncoderException {
@@ -119,33 +116,31 @@ class AWS4SignerBaseTest {
 		ReflectionTestUtils.setField(signer, "urlCodec", urlCodec);
 		Mockito.when(urlCodec.encode(ArgumentMatchers.anyString())).thenThrow(new EncoderException());
 		Assertions.assertEquals("Error during resource path encoding",
-				Assertions.assertThrows(TechnicalException.class, () -> {
-					signer.getCanonicalizedResourcePath("/path");
-				}).getMessage());
+				Assertions.assertThrows(TechnicalException.class, () -> signer.getCanonicalizedResourcePath("/path")).getMessage());
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedQueryStringEmpty() {
-		Assertions.assertEquals("", signer.getCanonicalizedQueryString(ImmutableMap.of()));
+		Assertions.assertEquals("", signer.getCanonicalizedQueryString(Map.of()));
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedQueryString() {
 		Assertions.assertEquals("q1=v1&q2=v2",
-				signer.getCanonicalizedQueryString(ImmutableMap.of("q2", "v2", "q1", "v1")));
+				signer.getCanonicalizedQueryString(Map.of("q2", "v2", "q1", "v1")));
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedQueryStringException() throws EncoderException {
@@ -154,14 +149,12 @@ class AWS4SignerBaseTest {
 		ReflectionTestUtils.setField(signer, "urlCodec", urlCodec);
 		Mockito.when(urlCodec.encode(ArgumentMatchers.anyString())).thenThrow(new EncoderException());
 		Assertions.assertEquals("Error during parameters encoding",
-				Assertions.assertThrows(TechnicalException.class, () -> {
-					signer.getCanonicalizedQueryString(ImmutableMap.of("q2", "v2", "q1", "v1"));
-				}).getMessage());
+				Assertions.assertThrows(TechnicalException.class, () -> signer.getCanonicalizedQueryString(Map.of("q2", "v2", "q1", "v1"))).getMessage());
 	}
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#getStringToSign(java.lang.String, java.lang.String, java.lang.String)}.
+	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getStringToSign(java.lang.String, java.lang.String, java.lang.String)}.
 	 */
 	@Test
 	void testGetStringToSign() {
@@ -171,7 +164,7 @@ class AWS4SignerBaseTest {
 	}
 
 	/**
-	 * Test method for {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#hash(java.lang.String)}.
+	 * Test method for {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#hash(java.lang.String)}.
 	 */
 	@Test
 	void testHash() {
@@ -180,7 +173,7 @@ class AWS4SignerBaseTest {
 	}
 
 	/**
-	 * Test method for {@link org.ligoj.app.plugin.prov.aws.auth.AWS4SignerBase#sign(java.lang.String, byte[])}.
+	 * Test method for {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#sign(java.lang.String, byte[])}.
 	 */
 	@Test
 	void testSign() {

@@ -79,7 +79,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 	void prepareData() throws Exception {
 		// Only with Spring context
 		persistSystemEntities();
-		persistEntities("csv", new Class[]{Node.class, Parameter.class, Project.class, Subscription.class,
+		persistEntities("csv", new Class<?>[]{Node.class, Parameter.class, Project.class, Subscription.class,
 				ParameterValue.class, VmSchedule.class}, StandardCharsets.UTF_8);
 		this.subscription = getSubscription("Jupiter");
 
@@ -152,9 +152,9 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		// Check network
 		Assertions.assertEquals(1, vm.getNetworks().size());
-		Assertions.assertEquals("10.0.0.236", vm.getNetworks().get(0).getIp());
-		Assertions.assertEquals("private", vm.getNetworks().get(0).getType());
-		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", vm.getNetworks().get(0).getDns());
+		Assertions.assertEquals("10.0.0.236", vm.getNetworks().getFirst().getIp());
+		Assertions.assertEquals("private", vm.getNetworks().getFirst().getType());
+		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", vm.getNetworks().getFirst().getDns());
 	}
 
 	@Test
@@ -211,7 +211,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 	void findAllByNameOrId() throws Exception {
 		final var projects = mockEc2Ok("eu-west-1").findAllByNameOrId("service:vm:aws:test", "INSTANCE_", newUriInfo());
 		Assertions.assertEquals(6, projects.size());
-		checkVm(projects.get(0));
+		checkVm(projects.getFirst());
 	}
 
 	@Test
@@ -254,7 +254,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 		final var projects = mockEc2Ok("eu-west-1").findAllByNameOrId("service:vm:aws:test", "i-00000006",
 				newUriInfo());
 		Assertions.assertEquals(1, projects.size());
-		final Vm item = projects.get(0);
+		final Vm item = projects.getFirst();
 		Assertions.assertEquals("i-00000006", item.getId());
 		Assertions.assertEquals("i-00000006", item.getName());
 	}
@@ -264,7 +264,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 		final var projects = mockEc2Ok("eu-west-1").findAllByNameOrId("service:vm:aws:test", "i-00000005",
 				newUriInfo());
 		Assertions.assertEquals(1, projects.size());
-		final Vm item = projects.get(0);
+		final Vm item = projects.getFirst();
 		Assertions.assertEquals("i-00000005", item.getId());
 		Assertions.assertEquals("INSTANCE_STOPPING", item.getName());
 	}
@@ -490,9 +490,9 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 
 		// Check network
 		Assertions.assertEquals(3, item.getNetworks().size());
-		Assertions.assertEquals("10.0.0.236", item.getNetworks().get(0).getIp());
-		Assertions.assertEquals("private", item.getNetworks().get(0).getType());
-		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", item.getNetworks().get(0).getDns());
+		Assertions.assertEquals("10.0.0.236", item.getNetworks().getFirst().getIp());
+		Assertions.assertEquals("private", item.getNetworks().getFirst().getType());
+		Assertions.assertEquals("ip-10-0-0-236.eu-west-1.compute.internal", item.getNetworks().getFirst().getDns());
 		Assertions.assertEquals("1.2.3.4", item.getNetworks().get(1).getIp());
 		Assertions.assertEquals("public", item.getNetworks().get(1).getType());
 		Assertions.assertEquals("ec2-1.2.3.4.eu-west-1.compute.amazonaws.com", item.getNetworks().get(1).getDns());
