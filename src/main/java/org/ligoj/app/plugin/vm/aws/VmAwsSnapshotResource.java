@@ -3,18 +3,7 @@
  */
 package org.ligoj.app.plugin.vm.aws;
 
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.IntStream;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpressionException;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -35,18 +24,24 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import lombok.extern.slf4j.Slf4j;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.IntStream;
 
 /**
  * AWS VM snapshot resource.
  *
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSnapshot.html">API_CreateSnapshot</a>
  * @see <a href=
- *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html">API_DescribeSnapshots</a>
+ * "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html">API_DescribeSnapshots</a>
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteSnapshot.html">API_DeleteSnapshot</a>
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html">API_CreateImage</a>
  * @see <a href=
- *      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeregisterImage.html">API_DeregisterImage</a>
+ * "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeregisterImage.html">API_DeregisterImage</a>
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html">API_DescribeImages</a>
  * @see <a href= "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html">API_CreateTags</a>
  */
@@ -205,7 +200,7 @@ public class VmAwsSnapshotResource {
 
 		// AMI has been found, unregister it
 		snapshotResource.nextStep(subscription, s -> {
-			s.setPhase("deregistering-ami");
+			s.setPhase("unregistering-ami");
 			s.setDone(1);
 		});
 		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeregisterImage&ImageId=" + amiId))) {
@@ -254,7 +249,7 @@ public class VmAwsSnapshotResource {
 		// Get all AMI associated to a snapshot and the subscription
 		try {
 			return toAmiList(resource.processEC2(subscription,
-					p -> "Action=DescribeImages&Owner.1=self" + StringUtils.defaultString(filter, "")));
+					p -> "Action=DescribeImages&Owner.1=self" + Objects.toString(filter, "")));
 		} catch (final Exception e) {
 			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
 			throw new BusinessException("DescribeImages-failed");
@@ -296,7 +291,7 @@ public class VmAwsSnapshotResource {
 		// Add the current task to the possible running snapshots
 		if (task != null) {
 			Optional.ofNullable(findUnlistedAmi(snapshots, task)).filter(s -> matches(s, criteria))
-					.ifPresent(s -> snapshots.add(0, s));
+					.ifPresent(snapshots::addFirst);
 
 			// Update the operation type from the task
 			snapshots.stream().filter(s -> StringUtils.equals(task.getSnapshotInternalId(), s.getId()))
@@ -468,7 +463,7 @@ public class VmAwsSnapshotResource {
 		taskAsSnapshot.setStopRequested(task.isStop());
 
 		// Override the status since this AMI is not really GA
-		setPending(taskAsSnapshot, StringUtils.defaultString(statusText, task.getStatusText()));
+		setPending(taskAsSnapshot, Objects.toString(statusText, task.getStatusText()));
 		return taskAsSnapshot;
 	}
 
@@ -500,7 +495,7 @@ public class VmAwsSnapshotResource {
 		IntStream.range(0, ebs.getLength()).mapToObj(ebs::item).findFirst().ifPresent(v -> {
 			final var se = (Element) v;
 			snapshot.setId(xml.getTagText(se, "snapshotId"));
-			snapshot.setSize(Integer.parseInt(StringUtils.defaultString(xml.getTagText(se, "volumeSize"), "0")));
+			snapshot.setSize(Integer.parseInt(Objects.toString(xml.getTagText(se, "volumeSize"), "0")));
 		});
 
 		return snapshot;
