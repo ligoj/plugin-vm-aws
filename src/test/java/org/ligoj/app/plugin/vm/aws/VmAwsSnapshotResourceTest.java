@@ -61,7 +61,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	void prepareData() throws Exception {
 		// Only with Spring context
 		persistSystemEntities();
-		persistEntities("csv", new Class[] { Node.class, Parameter.class, Project.class, Subscription.class,
+		persistEntities("csv", new Class<?>[] { Node.class, Parameter.class, Project.class, Subscription.class,
 				ParameterValue.class, VmSchedule.class }, StandardCharsets.UTF_8);
 		this.subscription = getSubscription("Jupiter");
 
@@ -81,7 +81,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(2, snapshots.size());
-		final var snapshot = checkAmiPart(snapshots.get(0));
+		final var snapshot = checkAmiPart(snapshots.getFirst());
 		Assertions.assertNotNull(snapshot.getDate());
 		Assertions.assertNotNull(snapshot.getAuthor().getFirstName());
 	}
@@ -103,7 +103,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(2, snapshots.size());
-		checkAmiPart(snapshots.get(0));
+		checkAmiPart(snapshots.getFirst());
 	}
 
 	/**
@@ -128,11 +128,11 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		checkAmiPart(snapshots.get(1));
 
 		// Failed task, unlisted AMI, failed and not created AMI
-		Assertions.assertEquals("ligoj-admin", snapshots.get(0).getAuthor().getId());
-		Assertions.assertEquals("ami-00000004", snapshots.get(0).getId());
-		Assertions.assertFalse(snapshots.get(0).isPending());
-		Assertions.assertFalse(snapshots.get(0).isAvailable());
-		Assertions.assertEquals("some-error", snapshots.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin", snapshots.getFirst().getAuthor().getId());
+		Assertions.assertEquals("ami-00000004", snapshots.getFirst().getId());
+		Assertions.assertFalse(snapshots.getFirst().isPending());
+		Assertions.assertFalse(snapshots.getFirst().isAvailable());
+		Assertions.assertEquals("some-error", snapshots.getFirst().getStatusText());
 	}
 
 	/**
@@ -154,11 +154,11 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		checkAmiPart(snapshots.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		Assertions.assertEquals("ligoj-admin2", snapshots.get(0).getAuthor().getId());
-		Assertions.assertEquals("ami-00000004", snapshots.get(0).getId());
-		Assertions.assertTrue(snapshots.get(0).isPending());
-		Assertions.assertFalse(snapshots.get(0).isAvailable());
-		Assertions.assertEquals("not-found", snapshots.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin2", snapshots.getFirst().getAuthor().getId());
+		Assertions.assertEquals("ami-00000004", snapshots.getFirst().getId());
+		Assertions.assertTrue(snapshots.getFirst().isPending());
+		Assertions.assertFalse(snapshots.getFirst().isAvailable());
+		Assertions.assertEquals("not-found", snapshots.getFirst().getStatusText());
 	}
 
 	/**
@@ -180,11 +180,11 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		checkAmiPart(snapshots.get(1));
 
 		// Finished task, unlisted AMI and not created AMI (user from AMI)
-		Assertions.assertEquals("ligoj-admin", snapshots.get(0).getAuthor().getId());
-		Assertions.assertEquals("ami-00000004", snapshots.get(0).getId());
-		Assertions.assertFalse(snapshots.get(0).isPending());
-		Assertions.assertTrue(snapshots.get(0).isAvailable());
-		Assertions.assertEquals("available", snapshots.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin", snapshots.getFirst().getAuthor().getId());
+		Assertions.assertEquals("ami-00000004", snapshots.getFirst().getId());
+		Assertions.assertFalse(snapshots.getFirst().isPending());
+		Assertions.assertTrue(snapshots.getFirst().isAvailable());
+		Assertions.assertEquals("available", snapshots.getFirst().getStatusText());
 	}
 
 	/**
@@ -204,11 +204,11 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		checkAmiPart(snapshots.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		Assertions.assertEquals("ligoj-admin2", snapshots.get(0).getAuthor().getId());
-		Assertions.assertNull(snapshots.get(0).getId());
-		Assertions.assertTrue(snapshots.get(0).isPending());
-		Assertions.assertFalse(snapshots.get(0).isAvailable());
-		Assertions.assertEquals("not-created", snapshots.get(0).getStatusText());
+		Assertions.assertEquals("ligoj-admin2", snapshots.getFirst().getAuthor().getId());
+		Assertions.assertNull(snapshots.getFirst().getId());
+		Assertions.assertTrue(snapshots.getFirst().isPending());
+		Assertions.assertFalse(snapshots.getFirst().isAvailable());
+		Assertions.assertEquals("not-created", snapshots.getFirst().getStatusText());
 	}
 
 	/**
@@ -232,7 +232,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		checkAmiPart(snapshots.get(1));
 
 		// Unfinished task, unlisted AMI and not created AMI
-		final var snapshot = snapshots.get(0);
+		final var snapshot = snapshots.getFirst();
 		Assertions.assertEquals("ligoj-admin2", snapshot.getAuthor().getId());
 		Assertions.assertEquals("ami-00000004", snapshot.getId());
 		Assertions.assertTrue(snapshot.isPending());
@@ -366,7 +366,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "snap-0000000000000000");
 		Assertions.assertEquals(1, snapshots.size());
-		checkAmiPart(snapshots.get(0));
+		checkAmiPart(snapshots.getFirst());
 	}
 
 	@Test
@@ -376,7 +376,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "ami-00000001");
 		Assertions.assertEquals(1, snapshots.size());
-		checkAmiPart(snapshots.get(0));
+		checkAmiPart(snapshots.getFirst());
 	}
 
 	@Test
@@ -386,7 +386,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "sample-ligoj2");
 		Assertions.assertEquals(1, snapshots.size());
-		checkAmiPart(snapshots.get(0));
+		checkAmiPart(snapshots.getFirst());
 	}
 
 	@Test
@@ -413,7 +413,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "n");
 		Assertions.assertEquals(2, snapshots.size());
-		Assertions.assertNull(checkAmiPart(snapshots.get(0)).getAuthor().getCompany());
+		Assertions.assertNull(checkAmiPart(snapshots.getFirst()).getAuthor().getCompany());
 	}
 
 	@Test
@@ -424,7 +424,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		// Only one volume snapshot match inside the AMI
 		final var snapshots = resource.findAllByNameOrId(subscription, "snap-");
 		Assertions.assertEquals(1, snapshots.size());
-		checkAmiPart(snapshots.get(0));
+		checkAmiPart(snapshots.getFirst());
 
 		// Without filter, the other AMI matches, and does not contain any volume snapshot (invalid)
 		final var snapshotsNoFilter = resource.findAllByNameOrId(subscription, "");
@@ -505,20 +505,20 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 	}
 
 	@Test
-	void deleteDeregisteringFailed() throws SAXException, IOException, ParserConfigurationException {
+	void deleteUnregisteringFailed() throws SAXException, IOException, ParserConfigurationException {
 		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004.xml");
-		checkDeregisteringFail(status);
+		checkUnregisteringFail(status);
 	}
 
 	@Test
-	void deleteDeregisteringReturnFalse() throws SAXException, IOException, ParserConfigurationException {
+	void deleteUnregisteringReturnFalse() throws SAXException, IOException, ParserConfigurationException {
 		final var status = mockDeleteStatus();
 		mockAws("Action=DescribeImages&Owner.1=self&ImageId.1=ami-00000004",
 				"mock-server/aws/describe-images-00000004.xml");
 		mockAws("Action=DeregisterImage&ImageId=ami-00000004", "mock-server/aws/deregister-image-return-false.xml");
-		checkDeregisteringFail(status);
+		checkUnregisteringFail(status);
 	}
 
 	private VmSnapshotStatus mockDeleteStatus() {
@@ -528,13 +528,13 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		return status;
 	}
 
-	private void checkDeregisteringFail(final VmSnapshotStatus status)
+	private void checkUnregisteringFail(final VmSnapshotStatus status)
 			throws SAXException, IOException, ParserConfigurationException {
 		resource.delete(status);
 		Assertions.assertTrue(status.isFinished());
 		Assertions.assertTrue(status.isFailed());
 		Assertions.assertTrue(status.isFinishedRemote());
-		Assertions.assertEquals("deregistering-ami", status.getPhase());
+		Assertions.assertEquals("unregistering-ami", status.getPhase());
 		Assertions.assertEquals(VmAwsPluginResource.KEY + ":ami-unregistering-failed", status.getStatusText());
 		Assertions.assertEquals(1, status.getDone());
 		Assertions.assertEquals(3, status.getWorkload());
@@ -672,9 +672,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	private Snapshot checkAmiPart(final Snapshot snapshot) {
 		Assertions.assertEquals(1, snapshot.getVolumes().size());
-		Assertions.assertEquals(8, snapshot.getVolumes().get(0).getSize());
-		Assertions.assertEquals("snap-0000000000000000", snapshot.getVolumes().get(0).getId());
-		Assertions.assertEquals("/dev/sda1", snapshot.getVolumes().get(0).getName());
+		Assertions.assertEquals(8, snapshot.getVolumes().getFirst().getSize());
+		Assertions.assertEquals("snap-0000000000000000", snapshot.getVolumes().getFirst().getId());
+		Assertions.assertEquals("/dev/sda1", snapshot.getVolumes().getFirst().getName());
 		return checkAmiPartNoVolume(snapshot);
 	}
 
