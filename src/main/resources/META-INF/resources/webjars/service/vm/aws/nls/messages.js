@@ -12,7 +12,7 @@ define({
 		'service:vm:aws:vpc' : 'VPC',
 		'service:vm:aws:region' : 'Region',
 		'service:vm:aws:resources' : 'Resources',
-		'service:vm:aws:signin': 'AWS Signin for this account',
+		'service:vm:aws:signin': 'AWS Sign-in for this account',
 		'service:vm:aws:console': 'AWS Console',
 		'service:vm:aws:az': 'Availability Zone',
 		'error' : {

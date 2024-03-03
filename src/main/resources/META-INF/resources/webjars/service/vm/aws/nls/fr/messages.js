@@ -13,7 +13,7 @@ define({
 	'error' : {
 		'aws-instance-id' : 'Instance invalide',
 		'aws-login' : 'Authentication échouée',
-		'aws-admin' : 'Accès administraton échoué'
+		'aws-admin' : 'Accès administration échoué'
 	}
 
 });

@@ -54,15 +54,15 @@ public class AWS4SignerVMForAuthorizationHeader extends AWS4SignerBase {
 		query.getHeaders().put("x-amz-content-sha256", bodyHash);
 		query.getHeaders().put("Host", query.getHost());
 
-		// canonicalize the headers; we need the set of header names as well as
+		// Canonicalize the headers; we need the set of header names as well as
 		// the names and values to go into the signature process
-		final var canonicalizedHeaderNames = getCanonicalizeHeaderNames(query.getHeaders());
+		final var canonicalizedHeaderNames = getCanonicalizedHeaderNames(query.getHeaders());
 		final var canonicalizedHeaders = getCanonicalizedHeaderString(query.getHeaders());
 
 		// if any query string parameters have been supplied, canonicalize them
 		final var canonicalizedQueryParameters = getCanonicalizedQueryString(query.getQueryParameters());
 
-		// canonicalize the various components of the request
+		// Canonicalize the various components of the request
 		final var canonicalRequest = getCanonicalRequest(query.getPath(), query.getMethod(),
 				canonicalizedQueryParameters, canonicalizedHeaderNames, canonicalizedHeaders, bodyHash);
 

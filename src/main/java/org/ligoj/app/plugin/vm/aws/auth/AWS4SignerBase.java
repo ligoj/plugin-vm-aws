@@ -26,7 +26,7 @@ public abstract class AWS4SignerBase {
 	protected static final String SCHEME = "AWS4";
 	protected static final String ALGORITHM = "HMAC-SHA256";
 	protected static final String TERMINATOR = "aws4_request";
-	private URLCodec urlCodec = new URLCodec();
+	private final URLCodec urlCodec = new URLCodec();
 
 	/**
 	 * Returns the canonical collection of header names that will be included in the signature. For AWS4, all header
@@ -35,7 +35,7 @@ public abstract class AWS4SignerBase {
 	 * @param headers Current headers.
 	 * @return Appended headers names only.
 	 */
-	protected String getCanonicalizeHeaderNames(final Map<String, String> headers) {
+	protected String getCanonicalizedHeaderNames(final Map<String, String> headers) {
 		return headers.keySet().stream().sorted(String.CASE_INSENSITIVE_ORDER).map(String::toLowerCase)
 				.collect(Collectors.joining(";"));
 	}
@@ -68,7 +68,7 @@ public abstract class AWS4SignerBase {
 	 * @param parameters  The query parameters.
 	 * @param headerNames Canonicalized header names.
 	 * @param headers     Canonicalized header names and values.
-	 * @param bodyHash    Hash digest of the body..
+	 * @param bodyHash    Hash digest of the body.
 	 * @return The canonicalized string request without body.
 	 */
 	protected String getCanonicalRequest(final String path, final String method, final String parameters,

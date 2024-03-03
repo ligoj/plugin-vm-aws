@@ -29,11 +29,11 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link  org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizeHeaderNames(java.util.Map)}.
+	 * {@link  org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedHeaderNames(java.util.Map)}.
 	 */
 	@Test
-	void testGetCanonicalizeHeaderNames() {
-		final var headerNames = signer.getCanonicalizeHeaderNames(Map.of("header2", "h2", "header1", "h1"));
+	void getCanonicalizedHeaderNames() {
+		final var headerNames = signer.getCanonicalizedHeaderNames(Map.of("header2", "h2", "header1", "h1"));
 		Assertions.assertEquals("header1;header2", headerNames);
 	}
 
