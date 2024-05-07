@@ -3,33 +3,11 @@
  */
 package org.ligoj.app.plugin.vm.aws;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpressionException;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.ligoj.app.api.SubscriptionStatusWithData;
@@ -63,7 +41,14 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import lombok.extern.slf4j.Slf4j;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import java.io.IOException;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * AWS VM resource.
@@ -299,7 +284,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 		// Merge the node parameters to the node ones
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters(node));
-		uriInfo.getQueryParameters().forEach((p, v) -> parameters.putIfAbsent(p, v.get(0)));
+		uriInfo.getQueryParameters().forEach((p, v) -> parameters.putIfAbsent(p, v.getFirst()));
 
 		// Get all VMs and then filter by its name or id
 		// Note : AWS does not support RegExp on tag
