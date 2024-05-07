@@ -63,12 +63,12 @@ public class AWS4SignatureQuery {
 		/**
 		 * query headers
 		 */
-		private final Map<String, String> headers = new HashMap<>();
+		private Map<String, String> headers = new HashMap<>();
 
 		/**
 		 * query parameters
 		 */
-		private final Map<String, String> queryParameters = new HashMap<>();
+		private Map<String, String> queryParameters = new HashMap<>();
 	}
 
 	/**
