@@ -1,44 +1,44 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.ligoj.api</groupId>
-		<artifactId>plugin-parent</artifactId>
-		<version>4.1.7</version>
-		<relativePath />
-	</parent>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.ligoj.api</groupId>
+        <artifactId>plugin-parent</artifactId>
+        <version>4.1.8</version>
+        <relativePath/>
+    </parent>
 
-	<groupId>org.ligoj.plugin</groupId>
-	<artifactId>plugin-vm-aws</artifactId>
-	<version>1.0.20-SNAPSHOT</version>
-	<packaging>jar</packaging>
-	<name>Ligoj - Plugin VM AWS EC2</name>
+    <groupId>org.ligoj.plugin</groupId>
+    <artifactId>plugin-vm-aws</artifactId>
+    <version>1.0.20-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>Ligoj - Plugin VM AWS EC2</name>
 
-	<scm>
-		<connection>scm:git:https://github.com/ligoj/plugin-vm-aws</connection>
-		<developerConnection>scm:git:https://github.com/ligoj/plugin-vm-aws</developerConnection>
-		<url>https://github.com/ligoj/plugin-vm-aws.git</url>
-	</scm>
+    <scm>
+        <connection>scm:git:https://github.com/ligoj/plugin-vm-aws</connection>
+        <developerConnection>scm:git:https://github.com/ligoj/plugin-vm-aws</developerConnection>
+        <url>https://github.com/ligoj/plugin-vm-aws.git</url>
+    </scm>
 
-	<dependencies>
-		<dependency>
-			<groupId>org.ligoj.plugin</groupId>
-			<artifactId>plugin-vm</artifactId>
-			<version>[2.0.5,2.1.0)</version>
-			<scope>provided</scope>
-		</dependency>
-	</dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.ligoj.plugin</groupId>
+            <artifactId>plugin-vm</artifactId>
+            <version>[2.0.5,2.1.0)</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 
-	<profiles>
-		<profile>
-			<id>github</id>
-			<distributionManagement>
-				<repository>
-					<id>github-ligoj</id>
-					<name>GitHub Packages</name>
-					<url>https://maven.pkg.github.com/ligoj/plugin-vm-aws</url>
-				</repository>
-			</distributionManagement>
-		</profile>
-	</profiles>
+    <profiles>
+        <profile>
+            <id>github</id>
+            <distributionManagement>
+                <repository>
+                    <id>github-ligoj</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ligoj/plugin-vm-aws</url>
+                </repository>
+            </distributionManagement>
+        </profile>
+    </profiles>
 </project>
