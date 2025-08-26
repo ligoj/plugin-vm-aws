@@ -15,6 +15,7 @@ import org.apache.commons.codec.digest.HmacAlgorithms;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.codec.net.URLCodec;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.ligoj.bootstrap.core.resource.TechnicalException;
 
 /**
@@ -85,7 +86,7 @@ public abstract class AWS4SignerBase {
 	 */
 	protected String getCanonicalizedResourcePath(final String path) {
 		try {
-			return StringUtils.prependIfMissing(urlCodec.encode(StringUtils.trimToEmpty(path)).replace("%2F", "/"),
+			return Strings.CS.prependIfMissing(urlCodec.encode(StringUtils.trimToEmpty(path)).replace("%2F", "/"),
 					"/");
 		} catch (final EncoderException e) {
 			throw new TechnicalException("Error during resource path encoding", e);

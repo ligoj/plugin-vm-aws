@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.ligoj.app.iam.IamProvider;
 import org.ligoj.app.iam.SimpleUser;
 import org.ligoj.app.iam.UserOrg;
@@ -294,7 +295,7 @@ public class VmAwsSnapshotResource {
 					.ifPresent(snapshots::addFirst);
 
 			// Update the operation type from the task
-			snapshots.stream().filter(s -> StringUtils.equals(task.getSnapshotInternalId(), s.getId()))
+			snapshots.stream().filter(s -> Strings.CS.equals(task.getSnapshotInternalId(), s.getId()))
 					.forEach(s -> s.setOperation(task.getOperation()));
 		}
 		return snapshots;
@@ -302,7 +303,7 @@ public class VmAwsSnapshotResource {
 
 	/**
 	 * Return all AMIs associated to the given subscription. Note that "DescribeImages" does not work exactly the same
-	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there is delay between CreateImage and
+	 * way when <code>ImageId.N</code> filter is enabled. Without this filter, there is a delay between CreateImage and
 	 * its visibility.
 	 *
 	 * @param subscription The related subscription identifier.
@@ -387,12 +388,12 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Check the given snapshot matches to the criteria : name, id, or one of its volume id.
+	 * Check the given snapshot matches to the criteria: name, id or one of its volume's identifiers.
 	 */
 	private boolean matches(final Snapshot snapshot, final String criteria) {
-		return StringUtils.containsIgnoreCase(StringUtils.defaultIfEmpty(snapshot.getName(), ""), criteria)
-				|| StringUtils.containsIgnoreCase(snapshot.getId(), criteria)
-				|| snapshot.getVolumes().stream().anyMatch(v -> StringUtils.containsIgnoreCase(v.getId(), criteria));
+		return Strings.CI.contains(StringUtils.defaultIfEmpty(snapshot.getName(), ""), criteria)
+				|| Strings.CI.contains(snapshot.getId(), criteria)
+				|| snapshot.getVolumes().stream().anyMatch(v -> Strings.CI.contains(v.getId(), criteria));
 	}
 
 	/**

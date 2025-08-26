@@ -10,6 +10,7 @@ import jakarta.ws.rs.core.UriInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.dao.NodeRepository;
 import org.ligoj.app.plugin.vm.VmNetwork;
@@ -289,8 +290,8 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		// Get all VMs and then filter by its name or id
 		// Note : AWS does not support RegExp on tag
 		return this.getDescribeInstances(parameters, "", this::toVm).stream()
-				.filter(vm -> StringUtils.containsIgnoreCase(vm.getName(), criteria)
-						|| StringUtils.containsIgnoreCase(vm.getId(), criteria))
+				.filter(vm -> Strings.CI.contains(vm.getName(), criteria)
+						|| Strings.CI.contains(vm.getId(), criteria))
 				.sorted().toList();
 	}
 
@@ -390,7 +391,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 */
 	private boolean logTransitionState(final String response)
 			throws XPathExpressionException, SAXException, IOException, ParserConfigurationException {
-		final var items = xml.getXpath(ObjectUtils.defaultIfNull(response, "<a></a>"),
+		final var items = xml.getXpath(ObjectUtils.getIfNull(response, "<a></a>"),
 				"/*[contains(local-name(),'InstancesResponse')]/instancesSet/item");
 		return IntStream.range(0, items.getLength()).mapToObj(items::item).map(n -> (Element) n)
 				.peek(e -> log.info("Instance {} goes from {} to {} state", xml.getTagText(e, "instanceId"),
