@@ -12,6 +12,8 @@
  * external links built purely from subscription parameters —
  *   - an AWS account sign-in page (when the account is known), and
  *   - the EC2 instance console (when region + instance id are known).
+ * Both use the host's shared `renderServiceLink` (tooltip promoted
+ * implicitly by the host).
  *
  * The legacy `renderDetailsKey` / `renderDetailsFeatures` carousels read
  * live `subscription.data.vm` (AZ, VPC, CPU/RAM, networks) — that data
@@ -20,29 +22,11 @@
  *
  * Kept free of Vue SFC imports so it can be unit-tested without a DOM.
  */
-import { h } from 'vue'
-import { VBtn, VIcon, useI18nStore } from '@ligoj/host'
+import { renderServiceLink, useI18nStore } from '@ligoj/host'
 
 const PARAM_ACCOUNT = 'service:vm:aws:account'
 const PARAM_REGION = 'service:vm:aws:region'
 const PARAM_ID = 'service:vm:aws:id'
-
-/** External-link icon button used for both AWS console shortcuts. */
-function linkButton({ icon, href, title }) {
-  return h(
-    VBtn,
-    {
-      icon: true,
-      size: 'small',
-      variant: 'text',
-      href,
-      title,
-      target: '_blank',
-      rel: 'noopener noreferrer',
-    },
-    () => h(VIcon, { size: 'small' }, () => icon),
-  )
-}
 
 /**
  * AWS console shortcuts for a subscription row. Mirrors the legacy
@@ -57,25 +41,21 @@ function renderFeatures(subscription) {
 
   const account = params[PARAM_ACCOUNT]
   if (account) {
-    buttons.push(
-      linkButton({
-        icon: 'mdi-login',
-        href: `https://${account}.signin.aws.amazon.com/console`,
-        title: t('service:vm:aws:signin'),
-      }),
-    )
+    buttons.push(renderServiceLink({
+      icon: 'mdi-login',
+      href: `https://${account}.signin.aws.amazon.com/console`,
+      title: t('service:vm:aws:signin'),
+    }))
   }
 
   const region = params[PARAM_REGION]
   const id = params[PARAM_ID]
   if (region && id) {
-    buttons.push(
-      linkButton({
-        icon: 'mdi-monitor',
-        href: `https://${region}.console.aws.amazon.com/ec2/v2/home?region=${region}#Instances:search=${id}`,
-        title: t('service:vm:aws:console'),
-      }),
-    )
+    buttons.push(renderServiceLink({
+      icon: 'mdi-monitor',
+      href: `https://${region}.console.aws.amazon.com/ec2/v2/home?region=${region}#Instances:search=${id}`,
+      title: t('service:vm:aws:console'),
+    }))
   }
 
   return buttons
