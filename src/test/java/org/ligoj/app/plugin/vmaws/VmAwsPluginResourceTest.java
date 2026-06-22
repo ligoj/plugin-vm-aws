@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.vm.aws;
+package org.ligoj.app.plugin.vmaws;
 
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.UriInfo;
@@ -15,8 +15,8 @@ import org.ligoj.app.AbstractServerTest;
 import org.ligoj.app.dao.ParameterValueRepository;
 import org.ligoj.app.dao.SubscriptionRepository;
 import org.ligoj.app.model.*;
-import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
-import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
+import org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery;
+import org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
 import org.ligoj.app.plugin.vm.execution.Vm;
 import org.ligoj.app.plugin.vm.model.*;
 import org.ligoj.app.resource.node.ParameterValueResource;

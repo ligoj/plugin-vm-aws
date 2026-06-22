@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.vm.aws;
+package org.ligoj.app.plugin.vmaws;
 
 import jakarta.transaction.Transactional;
 import org.apache.commons.io.IOUtils;

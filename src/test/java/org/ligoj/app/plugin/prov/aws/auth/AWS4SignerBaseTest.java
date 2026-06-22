@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.vm.aws.auth;
+package org.ligoj.app.plugin.prov.aws.auth;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -29,7 +29,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link  org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedHeaderNames(java.util.Map)}.
+	 * {@link  AWS4SignerBase#getCanonicalizedHeaderNames(java.util.Map)}.
 	 */
 	@Test
 	void getCanonicalizedHeaderNames() {
@@ -39,7 +39,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
+	 * {@link AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedHeaderStringWithoutHeaders() {
@@ -49,7 +49,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
+	 * {@link AWS4SignerBase#getCanonicalizedHeaderString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedHeaderString() {
@@ -60,7 +60,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalRequest(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)}.
+	 * {@link AWS4SignerBase#getCanonicalRequest(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalRequest() {
@@ -71,7 +71,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathNull() {
@@ -80,7 +80,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathEmpty() {
@@ -89,7 +89,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathWithoutFirstSlash() {
@@ -98,7 +98,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathWithFirstSlash() {
@@ -107,7 +107,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
+	 * {@link AWS4SignerBase#getCanonicalizedResourcePath(java.lang.String)}.
 	 */
 	@Test
 	void testGetCanonicalizedResourcePathEncodingException() throws EncoderException {
@@ -121,7 +121,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
+	 * {@link AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedQueryStringEmpty() {
@@ -130,7 +130,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
+	 * {@link AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedQueryString() {
@@ -140,7 +140,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
+	 * {@link AWS4SignerBase#getCanonicalizedQueryString(java.util.Map)}.
 	 */
 	@Test
 	void testGetCanonicalizedQueryStringException() throws EncoderException {
@@ -154,7 +154,7 @@ class AWS4SignerBaseTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#getStringToSign(java.lang.String, java.lang.String, java.lang.String)}.
+	 * {@link AWS4SignerBase#getStringToSign(java.lang.String, java.lang.String, java.lang.String)}.
 	 */
 	@Test
 	void testGetStringToSign() {
@@ -164,7 +164,7 @@ class AWS4SignerBaseTest {
 	}
 
 	/**
-	 * Test method for {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#hash(java.lang.String)}.
+	 * Test method for {@link AWS4SignerBase#hash(java.lang.String)}.
 	 */
 	@Test
 	void testHash() {
@@ -173,7 +173,7 @@ class AWS4SignerBaseTest {
 	}
 
 	/**
-	 * Test method for {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerBase#sign(java.lang.String, byte[])}.
+	 * Test method for {@link AWS4SignerBase#sign(java.lang.String, byte[])}.
 	 */
 	@Test
 	void testSign() {

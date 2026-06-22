@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.vm.aws.auth;
+package org.ligoj.app.plugin.prov.aws.auth;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -23,7 +23,7 @@ class AWS4SignerVMForAuthorizationHeaderTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery)}.
+	 * {@link AWS4SignerVMForAuthorizationHeader#computeSignature(AWS4SignatureQuery)}.
 	 */
 	@Test
 	void testComputeSignature() {
@@ -38,7 +38,7 @@ class AWS4SignerVMForAuthorizationHeaderTest {
 
 	/**
 	 * Test method for
-	 * {@link org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader#computeSignature(org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery)}.
+	 * {@link AWS4SignerVMForAuthorizationHeader#computeSignature(AWS4SignatureQuery)}.
 	 */
 	@Test
 	void testComputeSignatureWithBody() {

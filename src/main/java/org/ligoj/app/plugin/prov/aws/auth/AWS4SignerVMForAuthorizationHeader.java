@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.vm.aws.auth;
+package org.ligoj.app.plugin.prov.aws.auth;
 
 import java.time.Clock;
 import java.time.ZonedDateTime;

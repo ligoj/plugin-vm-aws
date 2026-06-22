@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.vm.aws;
+package org.ligoj.app.plugin.vmaws;
 
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -15,9 +15,9 @@ import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.dao.NodeRepository;
 import org.ligoj.app.plugin.vm.VmNetwork;
 import org.ligoj.app.plugin.vm.VmResource;
-import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery;
-import org.ligoj.app.plugin.vm.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
-import org.ligoj.app.plugin.vm.aws.auth.AWS4SignerVMForAuthorizationHeader;
+import org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery;
+import org.ligoj.app.plugin.prov.aws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
+import org.ligoj.app.plugin.prov.aws.auth.AWS4SignerVMForAuthorizationHeader;
 import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
 import org.ligoj.app.plugin.vm.execution.VmExecutionServicePlugin;
 import org.ligoj.app.plugin.vm.model.VmExecution;
