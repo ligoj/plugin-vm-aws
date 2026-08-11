@@ -24,7 +24,6 @@ import org.ligoj.app.resource.subscription.SubscriptionResource;
 import org.ligoj.bootstrap.core.DateUtils;
 import org.ligoj.bootstrap.core.resource.BusinessException;
 import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.Rollback;
@@ -37,6 +36,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import static org.mockito.Mockito.*;
 
 /**
  * Test class of {@link VmAwsSnapshotResource}
@@ -70,8 +71,8 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 		resource = new VmAwsSnapshotResource();
 		applicationContext.getAutowireCapableBeanFactory().autowireBean(resource);
-		resource.snapshotResource = Mockito.mock(VmSnapshotResource.class);
-		resource.resource = Mockito.mock(VmAwsPluginResource.class);
+		resource.snapshotResource = mock(VmSnapshotResource.class);
+		resource.resource = mock(VmAwsPluginResource.class);
 	}
 
 	@Test
@@ -99,7 +100,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin");
 		status.setSnapshotInternalId("ami-00000001");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(2, snapshots.size());
@@ -121,7 +122,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setSnapshotInternalId("ami-00000004");
 		status.setStatusText("some-error");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshots.size());
@@ -147,7 +148,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshots.size());
@@ -173,7 +174,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshots.size());
@@ -197,7 +198,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		final var status = new VmSnapshotStatus();
 		status.setAuthor("ligoj-admin2");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshots.size());
@@ -225,7 +226,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "");
 		Assertions.assertEquals(3, snapshots.size());
@@ -266,7 +267,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		resource.completeStatus(status);
 
@@ -293,7 +294,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		resource.completeStatus(status);
 
@@ -314,7 +315,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		status.setOperation(SnapshotOperation.DELETE);
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		// This would do nothing for this operation
 		resource.completeStatus(status);
@@ -341,7 +342,7 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setAuthor("ligoj-admin2");
 		status.setSnapshotInternalId("ami-00000004");
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
 
 		resource.completeStatus(status);
 
@@ -405,11 +406,11 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 				+ subscription, "mock-server/aws/describe-images-all.xml");
 
 		// Mock IAM
-		resource.iamProvider = new IamProvider[] { Mockito.mock(IamProvider.class) };
-		final var iamConfiguration = Mockito.mock(IamConfiguration.class);
-		Mockito.doReturn(iamConfiguration).when(resource.iamProvider[0]).getConfiguration();
-		final var userRepository = Mockito.mock(IUserRepository.class);
-		Mockito.doReturn(userRepository).when(iamConfiguration).getUserRepository();
+		resource.iamProvider = new IamProvider[] { mock(IamProvider.class) };
+		final var iamConfiguration = mock(IamConfiguration.class);
+		doReturn(iamConfiguration).when(resource.iamProvider[0]).getConfiguration();
+		final var userRepository = mock(IUserRepository.class);
+		doReturn(userRepository).when(iamConfiguration).getUserRepository();
 
 		final var snapshots = resource.findAllByNameOrId(subscription, "n");
 		Assertions.assertEquals(2, snapshots.size());
@@ -636,20 +637,20 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 		status.setLocked(subscriptionRepository.findOneExpected(subscription));
 		status.setOperation(SnapshotOperation.CREATE);
 
-		Mockito.when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
-		Mockito.when(resource.snapshotResource.nextStep(ArgumentMatchers.eq(subscription),
+		when(resource.snapshotResource.getTask(subscription)).thenReturn(status);
+		when(resource.snapshotResource.nextStep(ArgumentMatchers.eq(subscription),
 				ArgumentMatchers.argThat(f -> {
 					f.accept(status);
 					return true;
 				}))).thenReturn(null);
-		Mockito.when(resource.snapshotResource.endTask(ArgumentMatchers.eq(subscription), ArgumentMatchers.eq(true),
+		when(resource.snapshotResource.endTask(ArgumentMatchers.eq(subscription), ArgumentMatchers.eq(true),
 				ArgumentMatchers.argThat(f -> {
 					f.accept(status);
 					status.setFailed(true);
 					status.setEnd(new Date());
 					return true;
 				}))).thenReturn(null);
-		Mockito.when(resource.snapshotResource.endTask(ArgumentMatchers.eq(subscription), ArgumentMatchers.eq(false),
+		when(resource.snapshotResource.endTask(ArgumentMatchers.eq(subscription), ArgumentMatchers.eq(false),
 				ArgumentMatchers.argThat(f -> {
 					f.accept(status);
 					status.setEnd(new Date());
@@ -680,9 +681,9 @@ class VmAwsSnapshotResourceTest extends AbstractServerTest {
 
 	private void mockAws(final String url, final String response) throws IOException {
 		final var parameters = subscriptionResource.getParametersNoCheck(subscription);
-		Mockito.when(resource.resource.processEC2(ArgumentMatchers.eq(subscription),
+		when(resource.resource.processEC2(ArgumentMatchers.eq(subscription),
 				ArgumentMatchers.argThat(f -> f.apply(parameters).equals(url)))).thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), StandardCharsets.UTF_8));
-		Mockito.when(resource.resource.processEC2(ArgumentMatchers.eq(parameters), ArgumentMatchers.eq(url)))
+		when(resource.resource.processEC2(ArgumentMatchers.eq(parameters), ArgumentMatchers.eq(url)))
 				.thenReturn(IOUtils.toString(new ClassPathResource(response).getInputStream(), StandardCharsets.UTF_8));
 	}
 

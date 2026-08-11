@@ -28,7 +28,6 @@ import org.ligoj.bootstrap.core.resource.BusinessException;
 import org.ligoj.bootstrap.core.validation.ValidationJsonException;
 import org.ligoj.bootstrap.resource.system.configuration.ConfigurationResource;
 import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.Rollback;
@@ -42,6 +41,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
 
 /**
  * Test class of {@link VmAwsPluginResource}
@@ -333,7 +334,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	void executeFailed() throws IOException {
-		final var resource = Mockito.spy(this.resource);
+		final var resource = spy(this.resource);
 		addQueryMock(resource, "ec2", "eu-west-1", "Action=StopInstances&InstanceId.1=i-12345678&Version=2016-11-15",
 				HttpStatus.SC_INTERNAL_SERVER_ERROR, "");
 		addVmDetailsMock(resource);
@@ -394,11 +395,11 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	@Test
 	void checkSubscriptionStatusDown() {
-		final var resource = Mockito.spy(this.resource);
-		Mockito.doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
+		final var resource = spy(this.resource);
+		doReturn(false).when(resource).validateAccess(ArgumentMatchers.anyMap());
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		parameters.put(VmAwsPluginResource.PARAMETER_INSTANCE_ID, "0");
-		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
+		doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
 				.toUrl(ArgumentMatchers.argThat(query -> query.getRegion().equals("eu-west-1") && query.getService().equals("s3")));
 		httpServer.stubFor(post(urlEqualTo("/mock")).willReturn(aResponse().withStatus(404).withBody("")));
 		httpServer.start();
@@ -416,10 +417,10 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		var resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
-		resource = Mockito.spy(resource);
+		resource = spy(resource);
 		parameters.remove("service:vm:aws:region");
 		resource.configuration.put("service:vm:aws:region", "middle");
-		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
+		doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
 				.toUrl(ArgumentMatchers.argThat(query -> query.getRegion().equals("middle") && query.getService().equals("s3")));
 
 		httpServer.stubFor(post(urlEqualTo("/mock")).willReturn(aResponse().withStatus(HttpStatus.SC_OK)));
@@ -455,7 +456,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 
 	private VmAwsPluginResource mockAws(final String service, final String region, final String body, final int status,
 			final String response) {
-		final var resource = Mockito.spy(this.resource);
+		final var resource = spy(this.resource);
 		addQueryMock(resource, service, region, body, status, response);
 		httpServer.start();
 		return resource;
@@ -464,7 +465,7 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 	private void addQueryMock(final VmAwsPluginResource resource, final String service, final String region,
 			final String body, final int status, final String response) {
 		counterQuery++;
-		Mockito.doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
+		doReturn(MOCK_URL + "/" + counterQuery + "/").when(resource)
 				.toUrl(ArgumentMatchers.argThat(query -> query.getService().equals(service) && query.getRegion().equals(region)
 						&& ((body == null && null == query.getBody()) || query.getBody().equals(body))));
 		httpServer.stubFor(post(urlEqualTo("/mock/" + counterQuery + "/"))
@@ -507,11 +508,11 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 		final Map<String, String> parameters = new HashMap<>(pvResource.getNodeParameters("service:vm:aws:test"));
 		var resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
-		resource = Mockito.spy(resource);
+		resource = spy(resource);
 		final var mockRequest = new CurlRequest("GET", MOCK_URL, null);
 		mockRequest.setSaveResponse(true);
 		parameters.put("service:vm:aws:region", "any");
-		Mockito.doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
+		doReturn(mockRequest).when(resource).newRequest(ArgumentMatchers.any(AWS4SignatureQueryBuilder.class),
 				ArgumentMatchers.anyMap());
 
 		httpServer.stubFor(get(urlEqualTo("/mock")).willReturn(aResponse().withStatus(status)));
@@ -535,40 +536,40 @@ class VmAwsPluginResourceTest extends AbstractServerTest {
 	void snapshot() throws Exception {
 		final var resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
-		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
+		resource.snapshotResource = mock(VmAwsSnapshotResource.class);
 		final var transientTask = new VmSnapshotStatus();
 		resource.snapshot(transientTask);
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).create(transientTask);
+		verify(resource.snapshotResource, times(1)).create(transientTask);
 	}
 
 	@Test
 	void deleteSnapshot() throws Exception {
 		final var resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
-		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
+		resource.snapshotResource = mock(VmAwsSnapshotResource.class);
 		final var transientTask = new VmSnapshotStatus();
 		resource.delete(transientTask);
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).delete(transientTask);
+		verify(resource.snapshotResource, times(1)).delete(transientTask);
 	}
 
 	@Test
 	void findAllSnapshots() {
 		final var resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
-		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
+		resource.snapshotResource = mock(VmAwsSnapshotResource.class);
 		resource.findAllSnapshots(subscription, "criteria");
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).findAllByNameOrId(subscription, "criteria");
+		verify(resource.snapshotResource, times(1)).findAllByNameOrId(subscription, "criteria");
 	}
 
 	@Test
 	void completeStatus() {
 		final var resource = new VmAwsPluginResource();
 		SpringUtils.getApplicationContext().getAutowireCapableBeanFactory().autowireBean(resource);
-		resource.snapshotResource = Mockito.mock(VmAwsSnapshotResource.class);
+		resource.snapshotResource = mock(VmAwsSnapshotResource.class);
 
 		final var task = new VmSnapshotStatus();
 		resource.completeStatus(task);
-		Mockito.verify(resource.snapshotResource, Mockito.times(1)).completeStatus(task);
+		verify(resource.snapshotResource, times(1)).completeStatus(task);
 	}
 
 	private VmExecution newExecution(final VmOperation operation) {
