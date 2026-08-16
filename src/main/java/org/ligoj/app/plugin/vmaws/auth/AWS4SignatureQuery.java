@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.prov.aws.auth;
+package org.ligoj.app.plugin.vmaws.auth;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -61,14 +61,14 @@ public class AWS4SignatureQuery {
 	 */
 	public static class AWS4SignatureQueryBuilder {
 		/**
-		 * query headers
+		 * query headers. Not 'final': assigned by the Lombok generated 'headers(Map)' builder method.
 		 */
-		private final Map<String, String> headers = new HashMap<>();
+		private Map<String, String> headers = new HashMap<>();
 
 		/**
-		 * query parameters
+		 * query parameters. Not 'final': assigned by the Lombok generated 'queryParameters(Map)' builder method.
 		 */
-		private final Map<String, String> queryParameters = new HashMap<>();
+		private Map<String, String> queryParameters = new HashMap<>();
 	}
 
 	/**

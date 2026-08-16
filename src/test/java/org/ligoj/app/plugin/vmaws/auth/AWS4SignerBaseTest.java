@@ -1,7 +1,7 @@
 /*
  * Licensed under MIT (https://github.com/ligoj/ligoj/blob/master/LICENSE)
  */
-package org.ligoj.app.plugin.prov.aws.auth;
+package org.ligoj.app.plugin.vmaws.auth;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.binary.Hex;
