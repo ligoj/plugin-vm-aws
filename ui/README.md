@@ -12,6 +12,8 @@ This is a **tool-level** plugin — see the host's `app-ui/REWRITE_VUEJS.md`
   subscribe wizard's auto-rendered parameter form.
 - **`renderFeatures`** — an external AWS Console link button.
 - **`renderDetailsFeatures`** — a chip showing the AWS account.
+- **`parameterField`** — the subscribe wizard's instance search, within the
+  region of the form.
 
 It declares `requires: ['vm']`; the parent `plugin-vm` merges the row
 features above into its subscription rows via its delegation hook.

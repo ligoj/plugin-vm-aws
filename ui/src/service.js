@@ -22,7 +22,7 @@
  *
  * Kept free of Vue SFC imports so it can be unit-tested without a DOM.
  */
-import { renderServiceLink, useI18nStore } from '@ligoj/host'
+import { renderServiceLink, useI18nStore, remoteSearchField } from '@ligoj/host'
 
 const PARAM_ACCOUNT = 'service:vm:aws:account'
 const PARAM_REGION = 'service:vm:aws:region'
@@ -61,4 +61,16 @@ function renderFeatures(subscription) {
   return buttons
 }
 
-export default { renderFeatures }
+// Subscribe-wizard input: the virtual machines of the selected region of the selected instance, searched as the user types
+const VmField = remoteSearchField({ path: 'rest/service/vm/aws', query: [PARAM_REGION] })
+
+/**
+ * Subscribe-wizard hook: `service:vm:aws:id` is picked among the virtual machines of the selected region.
+ * Null for every other parameter and when editing a node: the default
+ * type-based input is rendered.
+ */
+function parameterField({ parameter, isNode } = {}) {
+  return !isNode && parameter?.id === PARAM_ID ? VmField : null
+}
+
+export default { renderFeatures, parameterField }

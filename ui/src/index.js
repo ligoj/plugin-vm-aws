@@ -25,6 +25,7 @@ import service from './service.js'
 
 const features = {
   renderFeatures: service.renderFeatures,
+  parameterField: service.parameterField,
 }
 
 export default {
