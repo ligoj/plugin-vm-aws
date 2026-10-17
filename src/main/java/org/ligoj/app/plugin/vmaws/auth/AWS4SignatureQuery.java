@@ -40,7 +40,7 @@ public class AWS4SignatureQuery {
 	 */
 	private String accessKey;
 	/**
-	 * AWS Secret Key : I won't give my secret key for the javadoc :)
+	 * AWS Secret Key : I won't give my secret key for the Javadoc :)
 	 */
 	private String secretKey;
 	/**

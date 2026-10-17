@@ -154,7 +154,7 @@ public class VmAwsSnapshotResource {
 			s.setDone(1);
 		});
 		if (!isReturnTrue(resource.processEC2(subscription,
-				p -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION + "&Tag.1.Value="
+				_ -> "Action=CreateTags&ResourceId.1=" + amiId + "&Tag.1.Key=" + TAG_SUBSCRIPTION + "&Tag.1.Value="
 						+ subscription + "&Tag.2.Key=" + TAG_AUDIT + "&Tag.2.Value=" + task.getAuthor()))) {
 			snapshotResource.endTask(subscription, true, s -> {
 				s.setStatusText(VmAwsPluginResource.KEY + ":ami-tag-failed");
@@ -204,7 +204,7 @@ public class VmAwsSnapshotResource {
 			s.setPhase("unregistering-ami");
 			s.setDone(1);
 		});
-		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeregisterImage&ImageId=" + amiId))) {
+		if (!isReturnTrue(resource.processEC2(subscription, _ -> "Action=DeregisterImage&ImageId=" + amiId))) {
 			// Unregistering failed
 			snapshotResource.endTask(subscription, true, s -> {
 				s.setStatusText(VmAwsPluginResource.KEY + ":ami-unregistering-failed");
@@ -221,7 +221,7 @@ public class VmAwsSnapshotResource {
 		final var query = new StringBuilder();
 		IntStream.range(0, ami.getVolumes().size())
 				.forEach(i -> query.append("&SnapshotId.").append(i + 1).append("=").append(ami.getVolumes().get(i).getId()));
-		if (!isReturnTrue(resource.processEC2(subscription, p -> "Action=DeleteSnapshot" + query))) {
+		if (!isReturnTrue(resource.processEC2(subscription, _ -> "Action=DeleteSnapshot" + query))) {
 			// Deleting snapshots failed
 			snapshotResource.endTask(subscription, true, s -> {
 				s.setStatusText(VmAwsPluginResource.KEY + ":ami-deleting-snapshots-failed");
@@ -250,7 +250,7 @@ public class VmAwsSnapshotResource {
 		// Get all AMI associated to a snapshot and the subscription
 		try {
 			return toAmiList(resource.processEC2(subscription,
-					p -> "Action=DescribeImages&Owner.1=self" + Objects.toString(filter, "")));
+					_ -> "Action=DescribeImages&Owner.1=self" + Objects.toString(filter, "")));
 		} catch (final Exception e) {
 			log.error("DescribeImages failed for subscription {} and filter '{}'", subscription, filter, e);
 			throw new BusinessException("DescribeImages-failed");
@@ -415,7 +415,7 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Convert a XML AMI node to a {@link Snapshot} instance.
+	 * Convert an XML AMI node to a {@link Snapshot} instance.
 	 */
 	private Snapshot toAmi(final Element element) {
 		final var snapshot = new Snapshot();
@@ -485,7 +485,7 @@ public class VmAwsSnapshotResource {
 	}
 
 	/**
-	 * Convert a XML AMI mapping device to {@link VolumeSnapshot} instance.
+	 * Convert an XML AMI mapping device to {@link VolumeSnapshot} instance.
 	 */
 	private VolumeSnapshot toVolume(final Element element) {
 		final var snapshot = new VolumeSnapshot();

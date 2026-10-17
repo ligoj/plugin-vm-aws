@@ -15,9 +15,6 @@ import org.ligoj.app.api.SubscriptionStatusWithData;
 import org.ligoj.app.dao.NodeRepository;
 import org.ligoj.app.plugin.vm.VmNetwork;
 import org.ligoj.app.plugin.vm.VmResource;
-import org.ligoj.app.plugin.vmaws.auth.AWS4SignatureQuery;
-import org.ligoj.app.plugin.vmaws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
-import org.ligoj.app.plugin.vmaws.auth.AWS4SignerVMForAuthorizationHeader;
 import org.ligoj.app.plugin.vm.dao.VmScheduleRepository;
 import org.ligoj.app.plugin.vm.execution.VmExecutionServicePlugin;
 import org.ligoj.app.plugin.vm.model.VmExecution;
@@ -26,6 +23,9 @@ import org.ligoj.app.plugin.vm.model.VmSnapshotStatus;
 import org.ligoj.app.plugin.vm.model.VmStatus;
 import org.ligoj.app.plugin.vm.snapshot.Snapshot;
 import org.ligoj.app.plugin.vm.snapshot.Snapshotting;
+import org.ligoj.app.plugin.vmaws.auth.AWS4SignatureQuery;
+import org.ligoj.app.plugin.vmaws.auth.AWS4SignatureQuery.AWS4SignatureQueryBuilder;
+import org.ligoj.app.plugin.vmaws.auth.AWS4SignerVMForAuthorizationHeader;
 import org.ligoj.app.resource.plugin.AbstractToolPluginResource;
 import org.ligoj.app.resource.plugin.XmlUtils;
 import org.ligoj.bootstrap.core.csv.CsvForBean;
@@ -89,7 +89,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	public static final String PARAMETER_ACCOUNT = KEY + ":account";
 
 	/**
-	 * AWS Region API Id.
+	 * AWS Region API identifier.
 	 */
 	public static final String PARAMETER_REGION = KEY + ":region";
 
@@ -120,6 +120,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 * @see <a href="http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_StartInstances.html">StartInstances</a>
 	 */
 	private static final Map<VmOperation, String> OPERATION_TO_ACTION = new EnumMap<>(VmOperation.class);
+
 	static {
 		OPERATION_TO_ACTION.put(VmOperation.OFF, "StopInstances&Force=true");
 		OPERATION_TO_ACTION.put(VmOperation.SHUTDOWN, "StopInstances");
@@ -127,10 +128,12 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		OPERATION_TO_ACTION.put(VmOperation.REBOOT, "RebootInstances");
 		OPERATION_TO_ACTION.put(VmOperation.RESET, "RebootInstances");
 	}
+
 	/**
 	 * VM code to {@link VmStatus} mapping.
 	 */
 	private static final Map<Integer, VmStatus> CODE_TO_STATUS = new HashMap<>();
+
 	static {
 		CODE_TO_STATUS.put(16, VmStatus.POWERED_ON);
 		CODE_TO_STATUS.put(STATE_TERMINATED, VmStatus.POWERED_OFF); // TERMINATED
@@ -139,10 +142,11 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		CODE_TO_STATUS.put(32, VmStatus.POWERED_OFF); // SHUTTING_DOWN - BUSY
 		CODE_TO_STATUS.put(64, VmStatus.POWERED_OFF); // STOPPING - BUSY
 	}
+
 	/**
 	 * VM busy AWS state codes
 	 */
-	private static final int[] BUSY_CODES = { 0, 32, 64 };
+	private static final int[] BUSY_CODES = {0, 32, 64};
 
 	@Autowired
 	private AWS4SignerVMForAuthorizationHeader signer;
@@ -256,7 +260,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 
 		// Execute the operation
 		final var response = Optional.ofNullable(OPERATION_TO_ACTION.get(execution.getOperation())).map(
-				a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
+						a -> processEC2(subscription, p -> "Action=" + a + "&InstanceId.1=" + p.get(PARAMETER_INSTANCE_ID)))
 				.orElse(null);
 		if (!logTransitionState(response)) {
 			// The result is not correct
@@ -362,9 +366,9 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	private String getResourceTag(final Element record, final String name) {
 		return Optional.ofNullable(record.getElementsByTagName("tagSet").item(0))
 				.map(n -> ((Element) n).getElementsByTagName("item"))
-				.map(n -> IntStream.range(0, n.getLength()).mapToObj(n::item).map(t -> (Element) t)
+				.flatMap(n -> IntStream.range(0, n.getLength()).mapToObj(n::item).map(t -> (Element) t)
 						.filter(t -> xml.getTagText(t, "key").equalsIgnoreCase(name))
-						.map(t -> xml.getTagText(t, "value")).findFirst().orElse(null))
+						.map(t -> xml.getTagText(t, "value")).findFirst())
 				.orElse(null);
 	}
 
@@ -375,7 +379,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 		// Get the VM if exists
 		return getDescribeInstances(parameters, "&Filter.1.Name=instance-id&Filter.1.Value.1=" + instanceId,
 				this::toVmDetails).stream().findFirst().orElseThrow(
-						() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
+				() -> new ValidationJsonException(PARAMETER_INSTANCE_ID, "aws-instance-id", instanceId));
 	}
 
 	@Override
@@ -426,7 +430,6 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *
 	 * @param subscription  The subscription holding the parameters.
 	 * @param queryProvider The query string provider that would be placed into the AWS body.
-	 *
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final int subscription, final Function<Map<String, String>, String> queryProvider) {
@@ -439,7 +442,6 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	 *
 	 * @param parameters The subscription's parameters.
 	 * @param query      The query string that would be placed into the AWS body.
-	 *
 	 * @return The response. <code>null</code> when failed.
 	 */
 	protected String processEC2(final Map<String, String> parameters, final String query) {
@@ -504,7 +506,7 @@ public class VmAwsPluginResource extends AbstractToolPluginResource
 	}
 
 	/**
-	 * Build described beans from a XML result.
+	 * Build described beans from an XML result.
 	 */
 	private List<AwsVm> toVms(final String vmAsXml, final Function<Element, AwsVm> parser) throws Exception {
 		final var items = xml.getXpath(vmAsXml, "/DescribeInstancesResponse/reservationSet/item/instancesSet/item");
